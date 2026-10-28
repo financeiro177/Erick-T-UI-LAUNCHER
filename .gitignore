@@ -1,0 +1,39 @@
+# Android Build Artifacts
+**/build/
+**/.gradle/
+**/captures/
+**/output-metadata.json
+
+# Signing Keys
+**/*.jks
+**/*.keystore
+**/*.p12
+release.jks
+
+# Local Configuration
+**/local.properties
+signing.properties
+keystore.properties
+google-services.json
+
+# IDE Files
+**/.idea/
+**/*.iml
+**/.classpath
+**/.project
+**/.settings/
+**/bin/
+
+# APKs and generated binaries
+**/*.apk
+**/*.idsig
+**/*.dm
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.log
+*.swp

@@ -391,9 +391,37 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         in.in(Tuils.EMPTYSTRING);
         ui.focusTerminal();
 
+        try {
+            ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
+        } catch (Exception ignored) {}
+
         if(fullscreen) Assist.assistActivity(this);
 
         System.gc();
+    }
+
+    private String buildWelcomeMessage() {
+        String user = XMLPrefsManager.get(Ui.username);
+        if (user == null || user.trim().length() == 0) user = "user";
+
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        int hour = now.get(java.util.Calendar.HOUR_OF_DAY);
+        String greeting = hour < 5 ? "Boa madrugada" : hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+        String[] days = {"Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"};
+        String day = days[now.get(java.util.Calendar.DAY_OF_WEEK) - 1];
+        String when = new java.text.SimpleDateFormat("dd/MM/yyyy - HH:mm", java.util.Locale.getDefault()).format(now.getTime());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ SISTEMA INICIADO ]\n");
+        sb.append("> autenticando usuario........ OK\n");
+        sb.append("> acesso concedido: ").append(user).append("\n");
+        sb.append("> carregando modulos.......... OK\n");
+        sb.append("> conexao segura.............. OK\n\n");
+        sb.append("Bem-vindo de volta, ").append(user).append(".\n");
+        sb.append(greeting).append(". ").append(day).append(", ").append(when).append("\n");
+        sb.append("Dispositivo: ").append(Build.MODEL).append(" | Android ").append(Build.VERSION.RELEASE).append("\n\n");
+        sb.append(user).append("@terminal:~# todos os sistemas operacionais.\n");
+        return sb.toString();
     }
 
     @Override

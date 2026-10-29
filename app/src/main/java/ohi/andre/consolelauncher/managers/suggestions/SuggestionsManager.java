@@ -795,7 +795,7 @@ public class SuggestionsManager {
     }
 
     private void suggestThemePresets(List<Suggestion> suggestions, String afterLastSpace, String beforeLastSpace) {
-        String[] presets = {"blue", "red", "green", "pink", "bw", "cyberpunk"};
+        String[] presets = {"blue", "red", "green", "pink", "bw", "cyberpunk", "ctos"};
         for (String p : presets) {
             if (afterLastSpace == null || afterLastSpace.length() == 0 || p.startsWith(afterLastSpace)) {
                 suggestions.add(new Suggestion(beforeLastSpace, p, true, Suggestion.TYPE_PERMANENT));

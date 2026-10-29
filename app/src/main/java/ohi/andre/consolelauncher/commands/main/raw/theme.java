@@ -189,8 +189,29 @@ public class theme extends ParamCommand {
                         
                         suggestionColors.put(Suggestions.alias_text_color, "#000000");
                         break;
+                    case "ctos":
+                        colors.put(backgroundTarget, transPrefix + "050B0F");
+                        colors.put(Theme.input_color, "#00F6FF");
+                        colors.put(Theme.output_color, "#B8FDFF");
+                        colors.put(Theme.device_color, "#FF8A00");
+                        colors.put(Theme.enter_color, "#00F6FF");
+                        colors.put(Theme.toolbar_color, "#FF8A00");
+                        colors.put(Theme.time_color, "#00F6FF");
+
+                        suggestionColors.put(Suggestions.apps_bg_color, "#00F6FF");
+                        suggestionColors.put(Suggestions.alias_bg_color, "#FF8A00");
+                        suggestionColors.put(Suggestions.cmd_bg_color, "#0A1A1F");
+                        suggestionColors.put(Suggestions.file_bg_color, "#0A1A1F");
+                        suggestionColors.put(Suggestions.song_bg_color, "#0A1A1F");
+
+                        suggestionColors.put(Suggestions.apps_text_color, "#050B0F");
+                        suggestionColors.put(Suggestions.alias_text_color, "#050B0F");
+                        suggestionColors.put(Suggestions.cmd_text_color, "#00F6FF");
+                        suggestionColors.put(Suggestions.file_text_color, "#00F6FF");
+                        suggestionColors.put(Suggestions.song_text_color, "#00F6FF");
+                        break;
                     default:
-                        return "Unknown preset. Available: blue, red, green, pink, bw, cyberpunk";
+                        return "Unknown preset. Available: blue, red, green, pink, bw, cyberpunk, ctos";
                 }
 
                 // Force toolbar_bg to transparent to avoid coloring the entire bar

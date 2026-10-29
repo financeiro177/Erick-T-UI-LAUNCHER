@@ -324,7 +324,7 @@
     <string name="help_status">Get info about battery charge, wifi status and mobile data</string>
     <string name="help_theme">-apply [path] -> apply a theme from a local file
         \n-set [element] [color] -> manually set a color
-        \n-preset [name] -> apply a built-in preset (blue, red, green, pink, bw, cyberpunk)
+        \n-preset [name] -> apply a built-in preset (blue, red, green, pink, bw, cyberpunk, ctos)
         \n-old -> re-apply the theme that was replaced by the current one
         \n-standard -> apply the standard theme</string>
     <string name="help_time">Print the current time with the given format
@@ -402,6 +402,7 @@
         \n-edit [contactName] -> edit an existing contact
         \n-rm [contactName] -> remove a contact</string>
     <string name="help_exit">Ask where to go: phone home screen or stay in T-UI (or change the default launcher)</string>
+    <string name="help_profile">Scan: mostra bateria, armazenamento, memoria, rede e apps instalados, com avisos quando algo estiver critico</string>
     <string name="help_rss">-add [ID] [update_time_in_seconds] [url] -> add a new RSS feed. t-ui will try to get new contents every [update_time_in_seconds] seconds
         \n-rm [ID] -> remove this RSS feed
         \n-ls -> list your RSS feeds

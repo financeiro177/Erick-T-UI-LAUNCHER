@@ -401,7 +401,7 @@
         \n-add -> create a new contact
         \n-edit [contactName] -> edit an existing contact
         \n-rm [contactName] -> remove a contact</string>
-    <string name="help_exit">Close T-UI and reset the default launcher</string>
+    <string name="help_exit">Ask where to go: phone home screen or stay in T-UI (or change the default launcher)</string>
     <string name="help_rss">-add [ID] [update_time_in_seconds] [url] -> add a new RSS feed. t-ui will try to get new contents every [update_time_in_seconds] seconds
         \n-rm [ID] -> remove this RSS feed
         \n-ls -> list your RSS feeds

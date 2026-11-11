@@ -36,6 +36,7 @@ import java.util.Set;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.tuixt.TuixtActivity;
 import ohi.andre.consolelauncher.managers.ContactManager;
+import ohi.andre.consolelauncher.managers.mock.MockLocationService;
 import ohi.andre.consolelauncher.managers.RegexManager;
 import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.managers.TimeManager;
@@ -473,6 +474,14 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         super.onStart();
 
         if (ui != null) ui.onStart(openKeyboardOnStart);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // a saved mock location whose service died (update, force stop, system kill) is resumed here
+        MockLocationService.ensureRunning(this);
     }
 
     @Override

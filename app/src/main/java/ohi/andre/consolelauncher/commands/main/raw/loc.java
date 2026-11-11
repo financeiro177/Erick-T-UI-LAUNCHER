@@ -261,9 +261,9 @@ public class loc extends ParamCommand {
 
     private static String startService(Context c, String okMessage) {
         if (!MockLocationService.isMockAppSelected(c)) {
-            MockLocationStore.clear(c);
+            // the state stays saved: the mock starts by itself once the app is selected
             MockLocationService.sendSelectAppMessage(c);
-            return null;
+            return say(c, "loc: pendente até selecionar o app (" + okMessage + ")");
         }
 
         try {

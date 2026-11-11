@@ -434,4 +434,13 @@
 
     <string name="help_username">Change the username and device name: username [new_user] [new_device]</string>
     <string name="help_bbman">-install -> download and setup BusyBox\n-remove -> uninstall BusyBox</string>
+    <string name="help_loc">-add -> save the current GPS position (asks for a name)
+        \n-ls -> list saved places and the active one
+        \n-use [name] -> mock this place
+        \n-go [name] [minutes] -> move gradually to the place
+        \n-reset -> stop mocking, back to the real GPS (same as -off)
+        \n-rm [name] -> remove a saved place
+        \n-status -> active place, service and mock app state
+        \n-dev -> open Developer options</string>
+    <string name="loc_name_hint">nome do local</string>
 </resources>

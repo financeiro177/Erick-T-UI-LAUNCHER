@@ -67,6 +67,28 @@ public class MockLocationService extends Service {
         context.stopService(new Intent(context, MockLocationService.class));
     }
 
+    /**
+     * Restarts the service when a mock is saved as active but nothing is emitting it: after an app
+     * update, a force stop, or a sticky restart refused by the system. Called whenever the launcher
+     * comes to the screen and after boot/update, which are moments where a foreground service may start.
+     */
+    public static void ensureRunning(Context context) {
+        try {
+            if (running) return;
+
+            MockLocationStore.State s = MockLocationStore.state(context);
+            if (!s.isOn()) return;
+
+            // not selected: stay paused without repeating the warning; resumes once it is selected again
+            if (!isMockAppSelected(context)) return;
+
+            start(context);
+            Tuils.sendOutput(CYAN, context, "loc: simulação retomada (" + (s.goTarget != null ? "a caminho de " + s.goTarget : s.active) + ")");
+        } catch (Exception e) {
+            // start refused right now: the next time the launcher is shown tries again
+        }
+    }
+
     /** True when this app is the one chosen in Developer options > Select mock location app. */
     public static boolean isMockAppSelected(Context context) {
         try {
@@ -155,8 +177,9 @@ public class MockLocationService extends Service {
                     return;
                 }
             } catch (SecurityException e) {
-                // the launcher is not the selected mock location app
-                MockLocationStore.clear(MockLocationService.this);
+                // the launcher is not the selected mock location app (anymore). The state is kept:
+                // ensureRunning() resumes the mock as soon as the app is selected again
+                say("loc: simulação pausada, GPS real visível");
                 sendSelectAppMessage(MockLocationService.this);
                 stopSelf();
                 return;

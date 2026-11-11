@@ -43,6 +43,7 @@ import ohi.andre.consolelauncher.managers.ContactManager;
 import ohi.andre.consolelauncher.managers.FileManager;
 import ohi.andre.consolelauncher.managers.RssManager;
 import ohi.andre.consolelauncher.managers.TerminalManager;
+import ohi.andre.consolelauncher.managers.mock.MockLocationStore;
 import ohi.andre.consolelauncher.managers.music.Song;
 import ohi.andre.consolelauncher.managers.notifications.NotificationManager;
 import ohi.andre.consolelauncher.managers.notifications.reply.BoundApp;
@@ -791,7 +792,22 @@ public class SuggestionsManager {
             case CommandAbstraction.THEME_PRESET:
                 suggestThemePresets(suggestions, afterLastSpace, beforeLastSpace);
                 break;
+            case CommandAbstraction.MOCK_PLACE:
+                suggestMockPlaces(info, suggestions, afterLastSpace, beforeLastSpace);
+                break;
         }
+    }
+
+    // saved places of the "loc" command, filtered by what was typed so far
+    private void suggestMockPlaces(MainPack info, List<Suggestion> suggestions, String afterLastSpace, String beforeLastSpace) {
+        try {
+            String typed = afterLastSpace == null ? Tuils.EMPTYSTRING : afterLastSpace.trim().toLowerCase();
+            for (MockLocationStore.Place p : MockLocationStore.places(info.context)) {
+                if (typed.length() == 0 || p.name.contains(typed)) {
+                    suggestions.add(new Suggestion(beforeLastSpace, p.name, false, Suggestion.TYPE_BOOLEAN));
+                }
+            }
+        } catch (Exception e) {}
     }
 
     private void suggestThemePresets(List<Suggestion> suggestions, String afterLastSpace, String beforeLastSpace) {

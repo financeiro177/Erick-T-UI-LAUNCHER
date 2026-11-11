@@ -167,7 +167,7 @@ public class CommandTuils {
             return defaultApp(input, ((MainPack) info).appsManager);
         } else if(type == CommandAbstraction.ALL_PACKAGES) {
             return allPackages(input, ((MainPack) info).appsManager);
-        } else if(type == CommandAbstraction.NO_SPACE_STRING || type == CommandAbstraction.APP_GROUP || type == CommandAbstraction.BOUND_REPLY_APP) {
+        } else if(type == CommandAbstraction.NO_SPACE_STRING || type == CommandAbstraction.MOCK_PLACE || type == CommandAbstraction.APP_GROUP || type == CommandAbstraction.BOUND_REPLY_APP) {
             return noSpaceString(input);
         } else if(type == CommandAbstraction.APP_INSIDE_GROUP) {
             return activityName(input, ((MainPack) info).appsManager);

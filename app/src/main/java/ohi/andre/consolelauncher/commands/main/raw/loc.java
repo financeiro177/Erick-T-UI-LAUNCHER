@@ -57,7 +57,7 @@ public class loc extends ParamCommand {
         rm {
             @Override
             public int[] args() {
-                return new int[] {CommandAbstraction.NO_SPACE_STRING};
+                return new int[] {CommandAbstraction.MOCK_PLACE};
             }
 
             @Override
@@ -92,7 +92,7 @@ public class loc extends ParamCommand {
         use {
             @Override
             public int[] args() {
-                return new int[] {CommandAbstraction.NO_SPACE_STRING};
+                return new int[] {CommandAbstraction.MOCK_PLACE};
             }
 
             @Override
@@ -108,7 +108,7 @@ public class loc extends ParamCommand {
         go {
             @Override
             public int[] args() {
-                return new int[] {CommandAbstraction.NO_SPACE_STRING, CommandAbstraction.INT};
+                return new int[] {CommandAbstraction.MOCK_PLACE, CommandAbstraction.INT};
             }
 
             @Override

@@ -69,6 +69,8 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+    // loc: mock mode of the Google fused location provider, used by most apps instead of the raw GPS
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
     
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'net.sourceforge.htmlcleaner:htmlcleaner:2.29'

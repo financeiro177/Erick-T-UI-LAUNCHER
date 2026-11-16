@@ -283,9 +283,9 @@ public class loc extends ParamCommand {
     // bumped by every command that changes what is being mocked, so a route still being fetched is dropped
     private static volatile int tripSeq = 0;
 
-    // Road routes need an external routing server (RouteFetcher), which receives the start and destination.
-    // Off for now: "-go" moves in a straight line and nothing is sent anywhere.
-    private static final boolean ROADS_ENABLED = false;
+    // Road routes come from an external routing server (RouteFetcher), which receives the start and destination
+    // of every "-go". Set to false to move in a straight line and send nothing anywhere.
+    private static final boolean ROADS_ENABLED = true;
 
     // straight-line trips without minutes (no route available) assume this speed
     private static final double FALLBACK_KMH = 40;

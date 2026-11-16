@@ -24,6 +24,9 @@ import android.provider.Settings;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+
 import java.util.Random;
 
 import ohi.andre.consolelauncher.R;
@@ -31,7 +34,9 @@ import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
- * Foreground service that feeds the GPS and NETWORK test providers once per second.
+ * Foreground service that feeds the GPS and NETWORK test providers once per second, and the same
+ * position to the Google fused location provider in mock mode. Without the latter, apps that read the
+ * fused provider get the real Wi-Fi/cell position from time to time.
  * It owns no state: on every tick it reads MockLocationStore, so the commands only have to
  * write the store and make sure the service is started.
  */
@@ -55,6 +60,12 @@ public class MockLocationService extends Service {
     private Handler handler;
     private LocationManager locationManager;
     private final Random random = new Random();
+
+    // Play services may restart and forget the mock mode: it is set again every this many ticks
+    private static final int FUSED_REARM_TICKS = 15;
+
+    private FusedLocationProviderClient fused;
+    private int fusedTicks = 0;
 
     private boolean providersReady = false;
     private float accuracy = 8f;
@@ -88,6 +99,13 @@ public class MockLocationService extends Service {
         } catch (Exception e) {
             // start refused right now: the next time the launcher is shown tries again
         }
+    }
+
+    /** Gives the Google fused location provider back to the real sensors. Safe to call at any time. */
+    public static void releaseFused(Context context) {
+        try {
+            LocationServices.getFusedLocationProviderClient(context.getApplicationContext()).setMockMode(false);
+        } catch (Throwable ignored) {}
     }
 
     /** True when this app is the one chosen in Developer options > Select mock location app. */
@@ -156,8 +174,12 @@ public class MockLocationService extends Service {
                 @Override
                 public void run() {
                     removeProviders();
+                    // on this thread, so it always comes after a tick that was still feeding the fused provider
+                    releaseFused(MockLocationService.this);
                 }
             });
+        } else {
+            releaseFused(this);
         }
         if (thread != null) thread.quitSafely();
 
@@ -264,9 +286,20 @@ public class MockLocationService extends Service {
                 l.setBearingAccuracyDegrees(10f);
             }
             locationManager.setTestProviderLocation(provider, l);
+
+            if (LocationManager.GPS_PROVIDER.equals(provider)) feedFused(l);
         }
 
         return true;
+    }
+
+    /** Failures here (no Play services, app not selected) never stop the test providers above. */
+    private void feedFused(Location l) {
+        try {
+            if (fused == null) fused = LocationServices.getFusedLocationProviderClient(this);
+            if (fusedTicks++ % FUSED_REARM_TICKS == 0) fused.setMockMode(true);
+            fused.setMockLocation(l);
+        } catch (Throwable ignored) {}
     }
 
     private void addProviders() {

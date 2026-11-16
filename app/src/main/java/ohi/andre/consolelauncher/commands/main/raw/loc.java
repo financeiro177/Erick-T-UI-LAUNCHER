@@ -289,6 +289,8 @@ public class loc extends ParamCommand {
         try {
             MockLocationService.stop(c);
         } catch (Exception ignored) {}
+        // also when the service was already dead, so the fused provider never stays stuck on the fake point
+        MockLocationService.releaseFused(c);
         return say(c, "mock desligado, GPS real");
     }
 

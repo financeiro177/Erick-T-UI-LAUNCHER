@@ -387,8 +387,14 @@ public class loc extends ParamCommand {
         try {
             MockLocationService.stop(c);
         } catch (Exception ignored) {}
-        // also when the service was already dead, so the fused provider never stays stuck on the fake point
+        // also when the service was already dead, so nothing stays stuck replacing the real providers
+        MockLocationService.releaseProviders(c);
         MockLocationService.releaseFused(c);
+
+        if (!MockLocationService.isMockAppSelected(c)) {
+            // without the selection the system refuses the cleanup above
+            say(c, "loc: selecione este app como localização fictícia (loc -dev) e repita o loc -reset; se a posição real não voltar, reinicie o aparelho");
+        }
 
         say(c, "mock desligado, buscando a posição real...");
         confirmRealLocation(c);

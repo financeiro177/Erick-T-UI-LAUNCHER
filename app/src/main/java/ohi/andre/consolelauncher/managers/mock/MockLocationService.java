@@ -105,6 +105,26 @@ public class MockLocationService extends Service {
         }
     }
 
+    /**
+     * Removes the GPS and NETWORK test providers even when no service is running. Providers left behind by a
+     * killed process or by a previous install keep the real ones replaced and silent: no app gets a position.
+     */
+    public static void releaseProviders(Context context) {
+        try {
+            LocationManager lm = (LocationManager) context.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return;
+
+            for (String provider : PROVIDERS) {
+                try {
+                    lm.setTestProviderEnabled(provider, false);
+                } catch (Exception ignored) {}
+                try {
+                    lm.removeTestProvider(provider);
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
     /** Gives the Google fused location provider back to the real sensors. Safe to call at any time. */
     public static void releaseFused(Context context) {
         try {

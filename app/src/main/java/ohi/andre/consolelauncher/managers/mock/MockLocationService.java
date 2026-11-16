@@ -67,6 +67,10 @@ public class MockLocationService extends Service {
     private FusedLocationProviderClient fused;
     private int fusedTicks = 0;
 
+    // road route of the running trip, parsed once per trip (the key is the trip start time)
+    private long pathKey = -1;
+    private double[] pathLat, pathLon, pathCum;
+
     private boolean providersReady = false;
     private float accuracy = 8f;
     private float lastBearing = 0f;
@@ -242,14 +246,40 @@ public class MockLocationService extends Service {
                 alt = target.alt;
                 say("loc: chegou em " + target.name);
             } else {
-                lat = s.goStartLat + (target.lat - s.goStartLat) * f;
-                lon = s.goStartLon + (target.lon - s.goStartLon) * f;
+                loadPath(s.goStart);
                 alt = target.alt;
 
                 float[] r = new float[2];
-                Location.distanceBetween(s.goStartLat, s.goStartLon, target.lat, target.lon, r);
-                speed = (float) (r[0] / (s.goDuration / 1000d));
-                lastBearing = (r[1] + 360f) % 360f;
+                if (pathCum != null) {
+                    // along the road route: f of the total length, then inside the segment that holds that distance
+                    int last = pathCum.length - 1;
+                    double d = f * pathCum[last];
+
+                    int lo = 0, hi = last;
+                    while (hi - lo > 1) {
+                        int mid = (lo + hi) >>> 1;
+                        if (pathCum[mid] <= d) lo = mid;
+                        else hi = mid;
+                    }
+
+                    double seg = pathCum[hi] - pathCum[lo];
+                    double t = seg > 0 ? (d - pathCum[lo]) / seg : 0;
+                    lat = pathLat[lo] + (pathLat[hi] - pathLat[lo]) * t;
+                    lon = pathLon[lo] + (pathLon[hi] - pathLon[lo]) * t;
+
+                    speed = (float) (pathCum[last] / (s.goDuration / 1000d));
+                    if (seg > 0) {
+                        Location.distanceBetween(pathLat[lo], pathLon[lo], pathLat[hi], pathLon[hi], r);
+                        lastBearing = (r[1] + 360f) % 360f;
+                    }
+                } else {
+                    lat = s.goStartLat + (target.lat - s.goStartLat) * f;
+                    lon = s.goStartLon + (target.lon - s.goStartLon) * f;
+
+                    Location.distanceBetween(s.goStartLat, s.goStartLon, target.lat, target.lon, r);
+                    speed = (float) (r[0] / (s.goDuration / 1000d));
+                    lastBearing = (r[1] + 360f) % 360f;
+                }
 
                 MockLocationStore.updatePosition(this, lat, lon);
             }
@@ -291,6 +321,41 @@ public class MockLocationService extends Service {
         }
 
         return true;
+    }
+
+    /** Parses the saved route of the trip started at goStart; leaves pathCum null for a straight-line trip. */
+    private void loadPath(long goStart) {
+        if (pathKey == goStart) return;
+        pathKey = goStart;
+        pathLat = pathLon = pathCum = null;
+
+        try {
+            String path = MockLocationStore.goPath(this);
+            if (path == null || path.length() == 0) return;
+
+            String[] points = path.split(";");
+            if (points.length < 2) return;
+
+            double[] la = new double[points.length], lo = new double[points.length], cum = new double[points.length];
+            float[] r = new float[1];
+            for (int i = 0; i < points.length; i++) {
+                int comma = points[i].indexOf(',');
+                la[i] = Double.parseDouble(points[i].substring(0, comma));
+                lo[i] = Double.parseDouble(points[i].substring(comma + 1));
+                if (i > 0) {
+                    Location.distanceBetween(la[i - 1], lo[i - 1], la[i], lo[i], r);
+                    cum[i] = cum[i - 1] + r[0];
+                }
+            }
+            if (cum[points.length - 1] <= 0) return;
+
+            pathLat = la;
+            pathLon = lo;
+            pathCum = cum;
+        } catch (Exception e) {
+            // unreadable route: the trip goes in a straight line
+            pathLat = pathLon = pathCum = null;
+        }
     }
 
     /** Failures here (no Play services, app not selected) never stop the test providers above. */

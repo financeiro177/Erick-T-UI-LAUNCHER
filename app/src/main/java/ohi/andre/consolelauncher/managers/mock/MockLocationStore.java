@@ -22,7 +22,7 @@ public class MockLocationStore {
     private static final String ACTIVE = "active";
     private static final String CUR_LAT = "cur_lat", CUR_LON = "cur_lon", CUR_ALT = "cur_alt";
     private static final String GO_TARGET = "go_target", GO_SLAT = "go_slat", GO_SLON = "go_slon",
-            GO_START = "go_start", GO_DURATION = "go_duration";
+            GO_START = "go_start", GO_DURATION = "go_duration", GO_PATH = "go_path";
 
     public static class Place {
         public final String name;
@@ -149,8 +149,11 @@ public class MockLocationStore {
         e.apply();
     }
 
-    /** Start a gradual trip from (startLat, startLon) to the target place. */
-    public static void startGo(Context c, Place target, double startLat, double startLon, double startAlt, long durationMs) {
+    /**
+     * Start a gradual trip from (startLat, startLon) to the target place.
+     * @param path "lat,lon;lat,lon;..." to follow (a road route), or null for a straight line
+     */
+    public static void startGo(Context c, Place target, double startLat, double startLon, double startAlt, long durationMs, String path) {
         SharedPreferences.Editor e = prefs(c).edit();
         e.remove(ACTIVE);
         putDouble(e, CUR_LAT, startLat);
@@ -161,7 +164,14 @@ public class MockLocationStore {
         putDouble(e, GO_SLON, startLon);
         e.putLong(GO_START, System.currentTimeMillis());
         e.putLong(GO_DURATION, Math.max(1000, durationMs));
+        if (path != null) e.putString(GO_PATH, path);
+        else e.remove(GO_PATH);
         e.apply();
+    }
+
+    /** Path of the running trip, or null when it goes in a straight line. Read apart from state(): it can be long. */
+    public static String goPath(Context c) {
+        return prefs(c).getString(GO_PATH, null);
     }
 
     /** Called by the service on every tick so "-go" and reboots resume from the last emitted point. */
@@ -181,6 +191,6 @@ public class MockLocationStore {
     }
 
     private static void clearGo(SharedPreferences.Editor e) {
-        e.remove(GO_TARGET).remove(GO_SLAT).remove(GO_SLON).remove(GO_START).remove(GO_DURATION);
+        e.remove(GO_TARGET).remove(GO_SLAT).remove(GO_SLON).remove(GO_START).remove(GO_DURATION).remove(GO_PATH);
     }
 }

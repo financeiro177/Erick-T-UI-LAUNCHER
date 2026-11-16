@@ -437,6 +437,7 @@
     <string name="help_loc">-add -> save the current GPS position (asks for a name)
         \n-ls -> list saved places and the active one
         \n-use [name] -> mock this place
+        \n-at [latitude] [longitude] -> mock these coordinates without saving a place
         \n-go [name] [minutes] -> move gradually to the place
         \n-reset -> stop mocking, back to the real GPS (same as -off)
         \n-rm [name] -> remove a saved place

@@ -105,6 +105,36 @@ public class loc extends ParamCommand {
                 return startService(c, "ativo: " + p.name);
             }
         },
+        at {
+            // "loc -at -23.55052 -46.63331" or "loc -at -23.55052,-46.63331": mock raw coordinates without saving a place
+            @Override
+            public int[] args() {
+                return new int[] {CommandAbstraction.PLAIN_TEXT};
+            }
+
+            @Override
+            public String exec(ExecutePack pack) {
+                Context c = pack.context;
+
+                String text = pack.getString();
+                String[] parts = text == null ? new String[0] : text.trim().split("[\\s,;]+");
+                if (parts.length != 2) return say(c, "loc: use loc -at latitude longitude (ex.: loc -at -23.55052 -46.63331)");
+
+                double lat, lon;
+                try {
+                    lat = Double.parseDouble(parts[0]);
+                    lon = Double.parseDouble(parts[1]);
+                } catch (NumberFormatException e) {
+                    return say(c, "loc: coordenadas inválidas (use ponto como decimal)");
+                }
+                if (Double.isNaN(lat) || Double.isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    return say(c, "loc: latitude entre -90 e 90, longitude entre -180 e 180");
+                }
+
+                MockLocationStore.activate(c, new MockLocationStore.Place(MANUAL, lat, lon, 0));
+                return startService(c, String.format(Locale.US, "ativo: %.5f, %.5f", lat, lon));
+            }
+        },
         go {
             @Override
             public int[] args() {
@@ -243,6 +273,9 @@ public class loc extends ParamCommand {
             return pack.context.getString(R.string.help_loc);
         }
     }
+
+    /** Name shown as the active place while raw coordinates ("-at") are being mocked. */
+    private static final String MANUAL = "(manual)";
 
     /** Prints a line in cyan. Returns null so the caller can "return say(...)" without printing twice. */
     private static String say(Context c, String text) {

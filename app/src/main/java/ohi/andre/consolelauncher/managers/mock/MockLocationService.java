@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
+import android.location.provider.ProviderProperties;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -30,7 +31,7 @@ import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
- * Foreground service that feeds the GPS and NETWORK test providers every few seconds.
+ * Foreground service that feeds the GPS and NETWORK test providers once per second.
  * It owns no state: on every tick it reads MockLocationStore, so the commands only have to
  * write the store and make sure the service is started.
  */
@@ -42,7 +43,7 @@ public class MockLocationService extends Service {
     private static final String CHANNEL_ID = "mock_location";
     private static final int NOTIFICATION_ID = 7341;
 
-    private static final long TICK_MS = 2500;
+    private static final long TICK_MS = 1000;
     private static final double JITTER_METERS = 2;
     private static final double METERS_PER_DEGREE = 111320;
 
@@ -188,7 +189,7 @@ public class MockLocationService extends Service {
                 providersReady = false;
             }
 
-            if (running && handler != null) handler.postDelayed(this, TICK_MS + random.nextInt(500));
+            if (running && handler != null) handler.postDelayed(this, TICK_MS);
         }
     };
 
@@ -278,9 +279,23 @@ public class MockLocationService extends Service {
             } catch (Exception ignored) {}
 
             boolean gps = LocationManager.GPS_PROVIDER.equals(provider);
-            // requiresNetwork, requiresSatellite, requiresCell, hasMonetaryCost,
-            // supportsAltitude, supportsSpeed, supportsBearing, powerRequirement (1 = low), accuracy (1 = fine)
-            locationManager.addTestProvider(provider, !gps, gps, false, false, true, true, true, 1, 1);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                locationManager.addTestProvider(provider, new ProviderProperties.Builder()
+                        .setHasNetworkRequirement(!gps)
+                        .setHasSatelliteRequirement(gps)
+                        .setHasCellRequirement(false)
+                        .setHasMonetaryCost(false)
+                        .setHasAltitudeSupport(true)
+                        .setHasSpeedSupport(true)
+                        .setHasBearingSupport(true)
+                        .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                        .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                        .build());
+            } else {
+                // requiresNetwork, requiresSatellite, requiresCell, hasMonetaryCost,
+                // supportsAltitude, supportsSpeed, supportsBearing, powerRequirement (1 = low), accuracy (1 = fine)
+                locationManager.addTestProvider(provider, !gps, gps, false, false, true, true, true, 1, 1);
+            }
             locationManager.setTestProviderEnabled(provider, true);
         }
     }

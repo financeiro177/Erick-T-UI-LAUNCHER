@@ -23,6 +23,7 @@ import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.specific.ParamCommand;
 import ohi.andre.consolelauncher.managers.mock.LocAddPrompt;
+import ohi.andre.consolelauncher.managers.mock.LocationAccuracy;
 import ohi.andre.consolelauncher.managers.mock.MockLocationService;
 import ohi.andre.consolelauncher.managers.mock.MockLocationStore;
 import ohi.andre.consolelauncher.managers.mock.RealLocation;
@@ -400,6 +401,7 @@ public class loc extends ParamCommand {
         if (!bringRealBack) return say(c, "mock desligado");
 
         say(c, "mock desligado, buscando a posição real...");
+        LocationAccuracy.askToTurnOn(c);
         confirmRealLocation(c, tripSeq, REAL_ATTEMPTS, 2000);
         return null;
     }
@@ -458,7 +460,11 @@ public class loc extends ParamCommand {
             MockLocationStore.clear(c);
             return say(c, "loc: não foi possível iniciar o serviço");
         }
-        return say(c, okMessage);
+        say(c, okMessage);
+
+        // with Google Location Accuracy on, the real Wi-Fi/cell position may show up now and then
+        LocationAccuracy.askToTurnOff(c);
+        return null;
     }
 
     @Override

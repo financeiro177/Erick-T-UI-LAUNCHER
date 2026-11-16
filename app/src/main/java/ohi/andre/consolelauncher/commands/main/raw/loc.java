@@ -177,16 +177,17 @@ public class loc extends ParamCommand {
             }
         },
         off {
+            // only stops the mock; the real position comes back whenever the phone finds it
             @Override
             public String exec(ExecutePack pack) {
-                return turnOff(pack.context);
+                return turnOff(pack.context, false);
             }
         },
         reset {
-            // same as -off
+            // stops the mock and keeps looking for the real position until it is back
             @Override
             public String exec(ExecutePack pack) {
-                return turnOff(pack.context);
+                return turnOff(pack.context, true);
             }
         },
         status {
@@ -381,7 +382,7 @@ public class loc extends ParamCommand {
     }
 
     /** Stops the mock: the test providers are removed and the other apps see the real GPS again. */
-    private static String turnOff(Context c) {
+    private static String turnOff(Context c, boolean bringRealBack) {
         tripSeq++;
         MockLocationStore.clear(c);
         try {
@@ -396,39 +397,52 @@ public class loc extends ParamCommand {
             say(c, "loc: selecione este app como localização fictícia (loc -dev) e repita o loc -reset; se a posição real não voltar, reinicie o aparelho");
         }
 
+        if (!bringRealBack) return say(c, "mock desligado");
+
         say(c, "mock desligado, buscando a posição real...");
-        confirmRealLocation(c);
+        confirmRealLocation(c, tripSeq, REAL_ATTEMPTS, 2000);
         return null;
     }
 
-    /** After the mock is turned off: wakes the real providers up and tells when the real position is back. */
-    private static void confirmRealLocation(final Context c) {
+    // "-reset" asks for the real position this many times (each attempt lasts up to ~30 s) before giving up
+    private static final int REAL_ATTEMPTS = 6;
+
+    /**
+     * "-reset": keeps the real providers awake until a real position arrives, then prints it. Asking for the
+     * position is what makes the GPS look for satellites again, so the other apps get it back sooner too.
+     */
+    private static void confirmRealLocation(final Context c, final int seq, final int attemptsLeft, long delayMs) {
         if (!RealLocation.hasPermission(c)) {
-            say(c, "loc: sem permissão de localização para conferir a posição real");
+            say(c, "loc: sem permissão de localização para buscar a posição real");
             return;
         }
 
-        final int seq = tripSeq;
-
-        // a moment for the test providers to be removed and for Google's provider to leave the mock mode
+        // the first delay gives time for the test providers to be removed and for Google's provider to leave the mock mode
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {
+                // the mock was turned on again meanwhile
+                if (seq != tripSeq) return;
+
                 RealLocation.get(c, new RealLocation.Callback() {
                     @Override
                     public void onResult(Location l) {
-                        // the mock was turned on again meanwhile
                         if (seq != tripSeq) return;
 
-                        if (l == null) {
-                            say(c, "loc: ainda sem posição real. Em ambiente fechado o GPS pode levar alguns minutos; a Precisão de local do Google ajuda");
-                        } else {
+                        // an old remembered position does not count: only a fix from the last few minutes
+                        if (l != null && System.currentTimeMillis() - l.getTime() > 3 * 60 * 1000) l = null;
+
+                        if (l != null) {
                             say(c, String.format(Locale.US, "posição real de volta: %.5f, %.5f (±%.0f m)", l.getLatitude(), l.getLongitude(), l.getAccuracy()));
+                        } else if (attemptsLeft > 1) {
+                            confirmRealLocation(c, seq, attemptsLeft - 1, 1000);
+                        } else {
+                            say(c, "loc: ainda sem posição real. Confira se a Localização e a Precisão de local do Google estão ligadas; se estiverem, reinicie o aparelho");
                         }
                     }
                 });
             }
-        }, 2000);
+        }, delayMs);
     }
 
     private static String startService(Context c, String okMessage) {

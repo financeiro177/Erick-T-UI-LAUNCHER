@@ -150,7 +150,7 @@ public class loc extends ParamCommand {
             }
         },
         go {
-            // minutes are optional: without them the trip takes the driving time of the route
+            // minutes are optional: without them the duration comes from the distance (road route when enabled, else FALLBACK_KMH)
             @Override
             public int[] args() {
                 return new int[] {CommandAbstraction.MOCK_PLACE, CommandAbstraction.INT};
@@ -279,6 +279,10 @@ public class loc extends ParamCommand {
     // bumped by every command that changes what is being mocked, so a route still being fetched is dropped
     private static volatile int tripSeq = 0;
 
+    // Road routes need an external routing server (RouteFetcher), which receives the start and destination.
+    // Off for now: "-go" moves in a straight line and nothing is sent anywhere.
+    private static final boolean ROADS_ENABLED = false;
+
     // straight-line trips without minutes (no route available) assume this speed
     private static final double FALLBACK_KMH = 40;
 
@@ -337,12 +341,12 @@ public class loc extends ParamCommand {
     /** Fetches the road route in the background and starts the trip; without a route it goes in a straight line. */
     private static void planTrip(final Context c, final MockLocationStore.Place target, final double startLat, final double startLon,
                                  final double startAlt, final int minutes, final int seq) {
-        say(c, "loc: calculando rota...");
+        if (ROADS_ENABLED) say(c, "loc: calculando rota...");
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                RouteFetcher.Route route = RouteFetcher.fetch(startLat, startLon, target.lat, target.lon);
+                RouteFetcher.Route route = ROADS_ENABLED ? RouteFetcher.fetch(startLat, startLon, target.lat, target.lon) : null;
 
                 // another loc command arrived while the route was being fetched
                 if (seq != tripSeq) return;
@@ -358,7 +362,7 @@ public class loc extends ParamCommand {
                     float[] r = new float[1];
                     Location.distanceBetween(startLat, startLon, target.lat, target.lon, r);
                     duration = minutes > 0 ? minutes * 60000L : Math.max(60000L, Math.round(r[0] / (FALLBACK_KMH / 3.6) * 1000));
-                    message = String.format(Locale.US, "sem rota disponível: indo para %s em linha reta, %.1f km em %d min", target.name,
+                    message = String.format(Locale.US, (ROADS_ENABLED ? "sem rota disponível: " : "") + "indo para %s em linha reta, %.1f km em %d min", target.name,
                             r[0] / 1000, Math.max(1, Math.round(duration / 60000d)));
                 }
 

@@ -439,7 +439,7 @@
         \n-use [name] -> mock this place
         \n-at [latitude] [longitude] -> mock these coordinates without saving a place
         \n-save [name] [latitude] [longitude] -> save a place from coordinates
-        \n-go [name] [minutes] -> move to the place along the roads; without minutes, takes the driving time
+        \n-go [name] [minutes] -> move gradually to the place in a straight line; without minutes, the time follows the distance (40 km/h)
         \n-reset -> stop mocking, back to the real GPS (same as -off)
         \n-rm [name] -> remove a saved place
         \n-status -> active place, service and mock app state

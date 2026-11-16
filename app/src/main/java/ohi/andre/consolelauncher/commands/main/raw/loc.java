@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 
@@ -387,7 +389,40 @@ public class loc extends ParamCommand {
         } catch (Exception ignored) {}
         // also when the service was already dead, so the fused provider never stays stuck on the fake point
         MockLocationService.releaseFused(c);
-        return say(c, "mock desligado, GPS real");
+
+        say(c, "mock desligado, buscando a posição real...");
+        confirmRealLocation(c);
+        return null;
+    }
+
+    /** After the mock is turned off: wakes the real providers up and tells when the real position is back. */
+    private static void confirmRealLocation(final Context c) {
+        if (!RealLocation.hasPermission(c)) {
+            say(c, "loc: sem permissão de localização para conferir a posição real");
+            return;
+        }
+
+        final int seq = tripSeq;
+
+        // a moment for the test providers to be removed and for Google's provider to leave the mock mode
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                RealLocation.get(c, new RealLocation.Callback() {
+                    @Override
+                    public void onResult(Location l) {
+                        // the mock was turned on again meanwhile
+                        if (seq != tripSeq) return;
+
+                        if (l == null) {
+                            say(c, "loc: ainda sem posição real. Em ambiente fechado o GPS pode levar alguns minutos; a Precisão de local do Google ajuda");
+                        } else {
+                            say(c, String.format(Locale.US, "posição real de volta: %.5f, %.5f (±%.0f m)", l.getLatitude(), l.getLongitude(), l.getAccuracy()));
+                        }
+                    }
+                });
+            }
+        }, 2000);
     }
 
     private static String startService(Context c, String okMessage) {

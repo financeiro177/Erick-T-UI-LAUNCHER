@@ -11,6 +11,17 @@ android {
     }
 
     signingConfigs {
+        // chave fixa do build do GitHub: o workflow grava o arquivo e informa o caminho em TUI_DEBUG_KEYSTORE.
+        // Sem a variavel (build local), vale a chave de debug padrao da maquina.
+        debug {
+            def fixedKeystore = System.getenv("TUI_DEBUG_KEYSTORE")
+            if (fixedKeystore != null && !fixedKeystore.isEmpty() && new File(fixedKeystore).exists()) {
+                storeFile new File(fixedKeystore)
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
         release {
             storeFile file("../" + (keystoreProperties["storeFile"] ?: "release.jks"))
             storePassword = keystoreProperties["storePassword"] ?: ""

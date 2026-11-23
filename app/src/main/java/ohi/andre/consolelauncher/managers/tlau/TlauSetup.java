@@ -298,4 +298,36 @@ public class TlauSetup extends RedirectCommand {
     public boolean isWaitingPermission() {
         return false;
     }
+
+    // this object is never registered as a command: the methods below are not used
+
+    @Override
+    public String exec(ExecutePack pack) {
+        return null;
+    }
+
+    @Override
+    public int[] argType() {
+        return new int[0];
+    }
+
+    @Override
+    public int priority() {
+        return 0;
+    }
+
+    @Override
+    public int helpRes() {
+        return R.string.help_tlau;
+    }
+
+    @Override
+    public String onArgNotFound(ExecutePack pack, int indexNotFound) {
+        return null;
+    }
+
+    @Override
+    public String onNotArgEnough(ExecutePack pack, int nArgs) {
+        return null;
+    }
 }

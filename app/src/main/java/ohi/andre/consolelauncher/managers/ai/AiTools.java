@@ -42,9 +42,12 @@ public class AiTools {
                 .append("Para achar um número, veja primeiro a memória e depois buscar_contato; se houver mais de um resultado, pergunte qual. ")
                 .append("Nunca invente números. Você não envia mensagens nem faz ligações: isso acontece quando o usuário toca em Ir.");
 
-        b.append("\n\nMemória: quando notar um dado que vai servir de novo (um contato com o app preferido, um endereço, um hábito), ")
-                .append("ofereça guardar em uma frase curta e só chame guardar_memoria depois do sim. ")
-                .append("Não ofereça guardar coisas passageiras ou lembretes bobos. ");
+        b.append("\n\nMemória: sempre que criar um lembrete que usou um contato, um número, um endereço ou uma escolha de app ")
+                .append("(por exemplo qual WhatsApp) que ainda não está na memória, termine a resposta oferecendo guardar, em uma frase: ")
+                .append("\"Quer que eu guarde [o dado] para a próxima vez?\". Só chame guardar_memoria depois do sim. ")
+                .append("Faça o mesmo quando o usuário contar algo estável sobre ele (como prefere ser chamado, rotina, lugares). ")
+                .append("Não ofereça para coisas passageiras ou lembretes simples sem contato. ")
+                .append("Quando a memória já tiver o dado, use-o e apenas confirme, sem perguntar de novo. ");
 
         List<String> keys = AiMemory.keys(c);
         if (keys.isEmpty()) {

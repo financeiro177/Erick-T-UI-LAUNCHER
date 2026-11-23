@@ -15,8 +15,8 @@ import ohi.andre.consolelauncher.R;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
- * The alarm of a reminder went off. With the T-UI on screen the card appears right away; otherwise a
- * notification is posted, and tapping it opens the T-UI with the card.
+ * The alarm of a reminder went off. With the T-Lau on screen the card appears right away; otherwise a
+ * notification is posted, and tapping it opens the T-Lau with the card.
  */
 public class ReminderReceiver extends BroadcastReceiver {
 

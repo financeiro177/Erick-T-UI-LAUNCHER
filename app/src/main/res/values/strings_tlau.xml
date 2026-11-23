@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="help_tlau">Ajustes do T-Lau (digite t-lau)
+        \n-config -default -> passo a passo do que precisa estar ativado (digite ok a cada passo)
+        \n-config -status -> mostra o que está ativado e o que falta</string>
+    <string name="tlau_setup_hint">ok, pular ou sair</string>
+</resources>

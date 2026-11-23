@@ -31,8 +31,8 @@ public class ContactSearch {
         if (wanted.length() < 2) return "erro: nome muito curto";
 
         if (ContextCompat.checkSelfPermission(c, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            return "erro: o T-UI não tem permissão de contatos. Peça o número ao usuário, ou diga para liberar em "
-                    + "Configurações > Aplicativos > T-UI > Permissões > Contatos.";
+            return "erro: o T-Lau não tem permissão de contatos. Peça o número ao usuário, ou diga para liberar em "
+                    + "Configurações > Aplicativos > T-Lau > Permissões > Contatos.";
         }
 
         Set<String> found = new LinkedHashSet<>();

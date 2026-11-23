@@ -298,6 +298,11 @@ public class MainManager {
             return;
         }
 
+        // the launcher's own command is typed "t-lau"; command names are plain letters, so it maps to the class "tlau"
+        if (input.length() >= 5 && input.substring(0, 5).equalsIgnoreCase("t-lau") && (input.length() == 5 || input.charAt(5) == ' ')) {
+            input = "tlau" + input.substring(5);
+        }
+
         if(alias != null && showAliasValue) {
            Tuils.sendOutput(aliasContentColor, mContext, aliasManager.formatLabel(alias, input));
         }

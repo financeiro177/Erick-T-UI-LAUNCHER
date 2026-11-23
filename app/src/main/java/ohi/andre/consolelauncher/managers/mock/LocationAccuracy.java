@@ -80,13 +80,18 @@ public class LocationAccuracy {
     }
 
     private static void openScreen(Context context) {
-        // public action of Google Play services settings (works where the activity itself is not exported)
-        try {
-            Intent g = new Intent("com.google.android.gms.location.settings.GOOGLE_LOCATION_SETTINGS");
-            g.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(g);
-            return;
-        } catch (Exception ignored) {}
+        // actions of Google Play services settings; the first one that opens is used
+        for (String action : new String[]{
+                "com.google.android.gms.location.settings.LOCATION_ACCURACY",
+                "com.google.android.gms.location.settings.GOOGLE_LOCATION_SETTINGS"}) {
+            try {
+                Intent g = new Intent(action);
+                g.setPackage(GMS);
+                g.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(g);
+                return;
+            } catch (Exception ignored) {}
+        }
 
         for (String screen : SCREENS) {
             try {
@@ -98,6 +103,7 @@ public class LocationAccuracy {
         }
 
         // the system location screen: Location services > Google Location Accuracy
+        say(context, "loc: nesta tela, toque em Serviços de localização > Precisão de local do Google");
         try {
             Intent i = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

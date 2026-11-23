@@ -195,7 +195,7 @@ public class lembrete implements CommandAbstraction {
     private static void warnings(Context c) {
         try {
             if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(c, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                warn(c, "lembrete: as notificações do T-UI estão desligadas, então o cartão só aparece com o T-UI aberto. Ligue em Configurações > Aplicativos > T-UI > Notificações.");
+                warn(c, "lembrete: as notificações do T-Lau estão desligadas, então o cartão só aparece com o T-Lau aberto. Ligue em Configurações > Aplicativos > T-Lau > Notificações.");
             }
             if (!ReminderScheduler.canBeExact(c)) {
                 warn(c, "lembrete: alarme exato não liberado; o lembrete pode atrasar alguns minutos.");
@@ -239,7 +239,7 @@ public class lembrete implements CommandAbstraction {
         if (r == null) return say(c, "lembrete: limite de " + ReminderStore.MAX_ITEMS + " lembretes.");
 
         ReminderScheduler.schedule(c, r);
-        say(c, "lembrete: o cartão de teste aparece em uns 8 segundos. Para testar a notificação, saia do T-UI antes.");
+        say(c, "lembrete: o cartão de teste aparece em uns 8 segundos. Para testar a notificação, saia do T-Lau antes.");
         warnings(c);
         return null;
     }

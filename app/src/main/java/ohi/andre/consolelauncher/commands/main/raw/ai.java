@@ -74,8 +74,21 @@ public class ai implements CommandAbstraction {
             }
         }
 
+        // "ai custo", "ai limite 50": an option typed without "-". Says so instead of spending a request on it.
+        String[] words = line.split("\\s+");
+        String firstWord = words[0].toLowerCase(Locale.ROOT);
+        boolean optionAlone = words.length == 1 && FORGOTTEN_DASH.contains(" " + firstWord + " ");
+        boolean optionWithValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + firstWord + " ")
+                && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
+        if (optionAlone || optionWithValue) {
+            return say(c, "ai: faltou o \"-\". Para essa opção use: ai -" + line.toLowerCase(Locale.ROOT)
+                    + "\n(se era mesmo uma pergunta, escreva com mais palavras)");
+        }
+
         return chat(c, line);
     }
+
+    private static final String FORGOTTEN_DASH = " custo fim limite ciclo aviso model memory memoria key ";
 
     // ---- conversation ----
 

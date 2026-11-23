@@ -28,7 +28,7 @@ import java.util.List;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
- * The reminder card: a full-screen overlay over the T-UI home that only leaves when the user confirms
+ * The reminder card: a full-screen overlay over the T-Lau home that only leaves when the user confirms
  * ("Ok", or "Ir" when it has an action) or snoozes it (+10 min, +1 h or a chosen time). Built in code, same look as the
  * approved mockup (black, terminal green, monospaced).
  */
@@ -57,7 +57,7 @@ public class ReminderCard {
         removeView();
     }
 
-    /** True when the T-UI is on screen and took care of showing the card. */
+    /** True when the T-Lau is on screen and took care of showing the card. */
     public static boolean onDue(Context c) {
         final Activity a = current == null ? null : current.get();
         if (a == null) return false;
@@ -276,7 +276,7 @@ public class ReminderCard {
         root.addView(scrim, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         shown = scrim;
 
-        // the T-UI keeps the keyboard open; the card needs the whole screen
+        // the T-Lau keeps the keyboard open; the card needs the whole screen
         try {
             InputMethodManager imm = (InputMethodManager) a.getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.hideSoftInputFromWindow(scrim.getWindowToken(), 0);

@@ -20,7 +20,7 @@ import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
  * Created by francescoandreuzzi on 21/05/2017.
- * Alterado: agora pergunta para onde ir (tela principal do celular ou ficar no T-UI).
+ * Alterado: agora pergunta para onde ir (tela principal do celular ou ficar no T-Lau).
  */
 
 public class exit implements CommandAbstraction {
@@ -33,7 +33,7 @@ public class exit implements CommandAbstraction {
             public void run() {
                 try {
                     new AlertDialog.Builder(context)
-                            .setTitle("Sair do T-UI")
+                            .setTitle("Sair do T-Lau")
                             .setMessage("Para onde voce quer ir?")
                             .setPositiveButton("Tela principal", new DialogInterface.OnClickListener() {
                                 @Override
@@ -41,8 +41,8 @@ public class exit implements CommandAbstraction {
                                     openStockHome(context);
                                 }
                             })
-                            .setNegativeButton("Ficar no T-UI", null)
-                            .setNeutralButton(isDefaultHome(context) ? "Trocar launcher padrao" : "Definir T-UI como padrao", new DialogInterface.OnClickListener() {
+                            .setNegativeButton("Ficar no T-Lau", null)
+                            .setNeutralButton(isDefaultHome(context) ? "Trocar launcher padrao" : "Definir T-Lau como padrao", new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
                                     if (isDefaultHome(context)) openHomeSettings(context);
@@ -71,7 +71,7 @@ public class exit implements CommandAbstraction {
         }
     }
 
-    // Android 10+: system dialog "use T-UI as home app?"; before that, or if it is refused, the default-apps screen
+    // Android 10+: system dialog "use T-Lau as home app?"; before that, or if it is refused, the default-apps screen
     private static void askToBeDefault(Context context) {
         try {
             if (android.os.Build.VERSION.SDK_INT >= 29 && context instanceof android.app.Activity) {

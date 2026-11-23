@@ -664,7 +664,7 @@ public enum Behavior implements XMLPrefsSave {
     tui_notification_title {
         @Override
         public String defaultValue() {
-            return "T-UI";
+            return "T-Lau";
         }
 
         @Override
@@ -680,7 +680,7 @@ public enum Behavior implements XMLPrefsSave {
     tui_notification_subtitle {
         @Override
         public String defaultValue() {
-            return "T-UI is running";
+            return "T-Lau ativo";
         }
 
         @Override

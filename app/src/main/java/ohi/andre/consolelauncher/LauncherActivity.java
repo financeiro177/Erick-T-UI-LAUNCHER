@@ -236,7 +236,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
                     intent.setAction(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
                     startActivityForResult(intent, 100);
                 }
-                Toast.makeText(this, "Please grant storage permissions to T-UI", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Please grant storage permissions to T-Lau", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -406,19 +406,19 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     }
 
 
-    // Arte ASCII do boot ("T-UI"), impressa de uma vez: sem atraso por linha e sem linhas em branco no meio.
+    // Arte ASCII do boot ("T-LAU", Teetsuuo Launcher). Vem depois das boas-vindas, para ficar logo acima
+    // da linha de comando e aparecer mesmo com o teclado aberto.
     private static final String BOOT_ART =
-            " _____          _   _  ___ \n" +
-            "|_   _|        | | | ||_ _|\n" +
-            "  | |   _____  | | | | | | \n" +
-            "  | |  |_____| | |_| | | | \n" +
-            "  |_|           \\___/ |___|\n" +
-            "\n" +
-            "[ TERMINAL DE ACESSO SEGURO ]";
+            " _____         _         _     _   _\n" +
+            "|_   _|       | |       / \\   | | | |\n" +
+            "  | |   _____ | |      / _ \\  | | | |\n" +
+            "  | |  |_____|| |___  / ___ \\ | |_| |\n" +
+            "  |_|         |_____|/_/   \\_\\ \\___/\n" +
+            "[ T-LAU :: TEETSUUO LAUNCHER ]";
 
     private void playBootSequence() {
-        ui.setOutput(Tuils.span(BOOT_ART, XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
         ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
+        ui.setOutput(Tuils.span(BOOT_ART, XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
     }
 
     private String buildWelcomeMessage() {
@@ -441,7 +441,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         sb.append("Bem-vindo de volta, ").append(user).append(".\n");
         sb.append(greeting).append(". ").append(day).append(", ").append(when).append("\n");
         sb.append("Dispositivo: ").append(Build.MODEL).append(" | Android ").append(Build.VERSION.RELEASE).append("\n\n");
-        sb.append(user).append("@terminal:~# todos os sistemas operacionais.\n");
+        sb.append(user).append("@t-lau:~# todos os sistemas operacionais.\n");
         return sb.toString();
     }
 
@@ -461,6 +461,9 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
         // reminders that came due while the app was away are shown as a card
         ohi.andre.consolelauncher.managers.reminder.ReminderCard.attach(this);
+
+        // after an install or update, the installer files left in Downloads are removed
+        ohi.andre.consolelauncher.managers.tlau.TlauCleanup.runIfUpdated(this);
     }
 
     @Override

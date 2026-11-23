@@ -14,6 +14,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
       - name: Aceitar licencas do Android SDK
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - name: Chave de assinatura fixa (segredo DEBUG_KEYSTORE_BASE64)

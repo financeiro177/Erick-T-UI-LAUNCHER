@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="help_lembrete">[hora] [texto] -> cria um lembrete (aparece como cartão na tela inicial)
+        \nExemplos: 18:50 ligar para a clínica | +30 beber água | +2h reunião | amanhã 9:00 dentista | 25/12 9:00 ceia
+        \nUse | para separar o título de um detalhe
+        \n-ls -> lista os lembretes
+        \n-rm [número] -> remove um lembrete
+        \n-teste -> mostra um cartão de teste em uns 8 segundos</string>
+</resources>

@@ -482,6 +482,9 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
         // a saved mock location whose service died (update, force stop, system kill) is resumed here
         MockLocationService.ensureRunning(this);
+
+        // reminders that came due while the app was away are shown as a card
+        ohi.andre.consolelauncher.managers.reminder.ReminderCard.attach(this);
     }
 
     @Override
@@ -494,6 +497,8 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     @Override
     protected void onPause() {
         super.onPause();
+
+        ohi.andre.consolelauncher.managers.reminder.ReminderCard.detach(this);
 
         if (ui != null && main != null) {
             ui.pause();

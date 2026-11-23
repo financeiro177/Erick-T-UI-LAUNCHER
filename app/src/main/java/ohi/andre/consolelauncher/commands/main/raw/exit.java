@@ -42,10 +42,11 @@ public class exit implements CommandAbstraction {
                                 }
                             })
                             .setNegativeButton("Ficar no T-UI", null)
-                            .setNeutralButton("Trocar launcher padrao", new DialogInterface.OnClickListener() {
+                            .setNeutralButton(isDefaultHome(context) ? "Trocar launcher padrao" : "Definir T-UI como padrao", new DialogInterface.OnClickListener() {
                                 @Override
                                 public void onClick(DialogInterface dialog, int which) {
-                                    Tuils.resetPreferredLauncherAndOpenChooser(context);
+                                    if (isDefaultHome(context)) openHomeSettings(context);
+                                    else askToBeDefault(context);
                                 }
                             })
                             .show();
@@ -56,6 +57,43 @@ public class exit implements CommandAbstraction {
         });
 
         return null;
+    }
+
+    // true when this app is the launcher the system uses today
+    private static boolean isDefaultHome(Context context) {
+        try {
+            Intent home = new Intent(Intent.ACTION_MAIN);
+            home.addCategory(Intent.CATEGORY_HOME);
+            ResolveInfo ri = context.getPackageManager().resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
+            return ri != null && ri.activityInfo != null && context.getPackageName().equals(ri.activityInfo.packageName);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Android 10+: system dialog "use T-UI as home app?"; before that, or if it is refused, the default-apps screen
+    private static void askToBeDefault(Context context) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 29 && context instanceof android.app.Activity) {
+                android.app.role.RoleManager rm = (android.app.role.RoleManager) context.getSystemService(Context.ROLE_SERVICE);
+                if (rm != null && rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME) && !rm.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
+                    ((android.app.Activity) context).startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 7343);
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+        openHomeSettings(context);
+    }
+
+    // Settings > Apps > Default apps > Home app
+    private static void openHomeSettings(Context context) {
+        try {
+            Intent i = new Intent(android.provider.Settings.ACTION_HOME_SETTINGS);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(i);
+        } catch (Exception e) {
+            Tuils.resetPreferredLauncherAndOpenChooser(context);
+        }
     }
 
     // Abre a tela inicial original do celular, sem mudar o launcher padrao.

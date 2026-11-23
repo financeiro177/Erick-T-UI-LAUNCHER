@@ -46,6 +46,14 @@ public class LocationAccuracy {
     public static void askToTurnOn(final Context context) {
         try {
             LocationServices.getSettingsClient(context).checkLocationSettings(request())
+                    .addOnSuccessListener(new OnSuccessListener<LocationSettingsResponse>() {
+                        @Override
+                        public void onSuccess(LocationSettingsResponse response) {
+                            // everything is already on: still takes the user there to confirm
+                            say(context, "loc: confira se a Precisão de local do Google está ligada para a posição real voltar");
+                            openScreen(context);
+                        }
+                    })
                     .addOnFailureListener(new OnFailureListener() {
                         @Override
                         public void onFailure(Exception e) {
@@ -63,24 +71,23 @@ public class LocationAccuracy {
         } catch (Throwable ignored) {}
     }
 
-    /** "-use", "-at", "-go": if Google Location Accuracy is on, opens its screen so it can be turned off. */
+    /** "-use", "-at", "-go": always takes the user to Google Location Accuracy so it can be turned off. */
     public static void askToTurnOff(final Context context) {
         try {
-            LocationServices.getSettingsClient(context).checkLocationSettings(request())
-                    .addOnSuccessListener(new OnSuccessListener<LocationSettingsResponse>() {
-                        @Override
-                        public void onSuccess(LocationSettingsResponse response) {
-                            LocationSettingsStates states = response == null ? null : response.getLocationSettingsStates();
-                            if (states == null || !states.isNetworkLocationUsable()) return;
-
-                            say(context, "loc: desative a Precisão de local do Google para a posição real não escapar");
-                            openScreen(context);
-                        }
-                    });
+            say(context, "loc: desative a Precisão de local do Google para a posição real não escapar");
+            openScreen(context);
         } catch (Throwable ignored) {}
     }
 
     private static void openScreen(Context context) {
+        // public action of Google Play services settings (works where the activity itself is not exported)
+        try {
+            Intent g = new Intent("com.google.android.gms.location.settings.GOOGLE_LOCATION_SETTINGS");
+            g.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(g);
+            return;
+        } catch (Exception ignored) {}
+
         for (String screen : SCREENS) {
             try {
                 Intent i = new Intent().setComponent(new ComponentName(GMS, screen));

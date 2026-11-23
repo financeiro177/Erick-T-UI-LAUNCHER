@@ -29,6 +29,11 @@ jobs:
           fi
       - name: Build debug APK (flavor fdroid)
         run: chmod +x gradlew && ./gradlew assembleFdroidDebug --no-daemon --stacktrace
+      - name: Assinatura do APK gerado
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs -v app/build/outputs/apk/fdroid/debug/*.apk | grep -E "Verified using|SHA-256 digest|Verifies" || true
+          "$ANDROID_HOME"/build-tools/*/aapt2 dump badging app/build/outputs/apk/fdroid/debug/*.apk 2>/dev/null | grep -E "^package|sdkVersion|targetSdk|testOnly" | head -5 || true
       - uses: actions/upload-artifact@v4
         with:
           name: tui-launcher-apk

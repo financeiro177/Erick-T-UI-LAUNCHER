@@ -447,7 +447,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
     private String buildWelcomeMessage() {
         String user = XMLPrefsManager.get(Ui.username);
-        if (user == null || user.trim().length() == 0) user = "Teetsuo";
+        if (user == null || user.trim().length() == 0) user = "Teetsuuo";
 
         java.util.Calendar now = java.util.Calendar.getInstance();
         int hour = now.get(java.util.Calendar.HOUR_OF_DAY);

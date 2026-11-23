@@ -14,6 +14,7 @@ import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.managers.ai.AiClient;
 import ohi.andre.consolelauncher.managers.ai.AiConfig;
 import ohi.andre.consolelauncher.managers.ai.AiConversation;
+import ohi.andre.consolelauncher.managers.ai.AiMemory;
 import ohi.andre.consolelauncher.managers.ai.AiUsage;
 
 /**
@@ -27,6 +28,7 @@ import ohi.andre.consolelauncher.managers.ai.AiUsage;
  *   ai -ciclo [day]          day of the month when the plan renews
  *   ai -aviso [tokens]       warns when the conversation passes this size
  *   ai -model [name]         haiku / sonnet / opus
+ *   ai -memory               what the assistant keeps (-rm key forgets one item)
  *   ai -key                  saves the key that is in the clipboard, then clears the clipboard
  *
  * It is a plain CommandAbstraction (not a ParamCommand) so a free sentence can follow "ai".
@@ -63,6 +65,9 @@ public class ai implements CommandAbstraction {
                     return model(c, rest);
                 case "-key":
                     return key(c);
+                case "-memory":
+                case "-memoria":
+                    return memory(c, rest);
                 default:
                     // "-word" is taken as a mistyped option; anything else (e.g. "-5 + 3") is a normal phrase
                     if (opt.matches("-[a-zà-ú]+")) return say(c, "ai: opção desconhecida (" + opt + "). Digite ai para ver a ajuda.");
@@ -202,6 +207,23 @@ public class ai implements CommandAbstraction {
 
         AiConfig.setModel(c, m);
         return say(c, "ai: modelo = " + m);
+    }
+
+    // "ai -memory" lists what the assistant keeps; "ai -memory -rm chave" forgets one item
+    private static String memory(Context c, String rest) {
+        if (rest.toLowerCase(Locale.ROOT).startsWith("-rm")) {
+            String k = rest.substring(3).trim();
+            if (k.length() == 0) return say(c, "ai: informe a chave. Exemplo: ai -memory -rm contabilidade");
+            return say(c, AiMemory.remove(c, k) ? "ai: esquecido: " + AiMemory.normalize(k) : "ai: não há essa chave na memória.");
+        }
+
+        java.util.List<String> keys = AiMemory.keys(c);
+        if (keys.isEmpty()) return say(c, "ai: a memória está vazia. Ela só guarda algo quando você aceita a sugestão.");
+
+        StringBuilder b = new StringBuilder("== ai: memória (" + keys.size() + " de " + AiMemory.MAX_ITEMS + ") ==");
+        for (String k : keys) b.append('\n').append(k).append(" = ").append(AiMemory.get(c, k));
+        b.append("\n(para esquecer: ai -memory -rm chave)");
+        return say(c, b.toString());
     }
 
     private static String key(Context c) {

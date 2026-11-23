@@ -25,6 +25,14 @@ public class ReminderStore {
         public int id;
         public String title, body, source;
         public long when, created;
+
+        // what the "Ir" button of the card does; an empty type means a plain reminder (button "Ok")
+        public String actionType = "", actionTarget = "", actionText = "", actionApp = "";
+        public boolean actionDirect;
+
+        public boolean hasAction() {
+            return actionType != null && actionType.length() > 0;
+        }
     }
 
     public static final String SOURCE_USER = "user";
@@ -57,6 +65,11 @@ public class ReminderStore {
                 r.source = o.optString("source", SOURCE_USER);
                 r.when = o.getLong("when");
                 r.created = o.optLong("created", r.when);
+                r.actionType = o.optString("aType", "");
+                r.actionTarget = o.optString("aTarget", "");
+                r.actionText = o.optString("aText", "");
+                r.actionApp = o.optString("aApp", "");
+                r.actionDirect = o.optBoolean("aDirect", false);
                 out.add(r);
             }
         } catch (Exception ignored) {}
@@ -81,6 +94,13 @@ public class ReminderStore {
                 o.put("source", r.source);
                 o.put("when", r.when);
                 o.put("created", r.created);
+                if (r.hasAction()) {
+                    o.put("aType", r.actionType);
+                    o.put("aTarget", r.actionTarget);
+                    o.put("aText", r.actionText);
+                    o.put("aApp", r.actionApp);
+                    o.put("aDirect", r.actionDirect);
+                }
                 a.put(o);
             }
             prefs(c).edit().putString(LIST, a.toString()).apply();
@@ -117,6 +137,11 @@ public class ReminderStore {
 
     /** Returns null when the limit of reminders was reached. */
     public static Reminder add(Context c, String title, String body, long when, String source) {
+        return add(c, title, body, when, source, null);
+    }
+
+    /** "action" only lends its action fields; null means a plain reminder. */
+    public static Reminder add(Context c, String title, String body, long when, String source, Reminder action) {
         synchronized (LOCK) {
             List<Reminder> list = load(c);
             if (list.size() >= MAX_ITEMS) return null;
@@ -131,6 +156,13 @@ public class ReminderStore {
             r.source = SOURCE_AI.equals(source) ? SOURCE_AI : SOURCE_USER;
             r.when = when;
             r.created = System.currentTimeMillis();
+            if (action != null && action.hasAction()) {
+                r.actionType = action.actionType;
+                r.actionTarget = cut(action.actionTarget, 300);
+                r.actionText = cut(action.actionText, 1000);
+                r.actionApp = cut(action.actionApp, 20);
+                r.actionDirect = action.actionDirect;
+            }
             list.add(r);
             save(c, list);
             return r;

@@ -29,7 +29,7 @@ import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
  * The reminder card: a full-screen overlay over the T-UI home that only leaves when the user confirms
- * ("Li, pode fechar") or snoozes it (+10 min, +1 h or a chosen time). Built in code, same look as the
+ * ("Ok", or "Ir" when it has an action) or snoozes it (+10 min, +1 h or a chosen time). Built in code, same look as the
  * approved mockup (black, terminal green, monospaced).
  */
 public class ReminderCard {
@@ -175,6 +175,19 @@ public class ReminderCard {
             content.addView(body);
         }
 
+        if (r.hasAction()) {
+            TextView action = text(a, "Ir -> " + ReminderAction.describe(r), 12, GREEN);
+            action.setPadding(0, dp(a, 8), 0, 0);
+            content.addView(action);
+
+            if (r.actionText.length() > 0) {
+                TextView message = text(a, "\"" + r.actionText + "\"", 12, BODY);
+                message.setPadding(0, dp(a, 4), 0, 0);
+                message.setMaxLines(6);
+                content.addView(message);
+            }
+        }
+
         String meta = "criado por " + (ReminderStore.SOURCE_AI.equals(r.source) ? "ai" : "você") + " às " + ReminderStore.hour(r.created);
         if (dueCount > 1) meta += " · 1 de " + dueCount + " na fila";
         TextView metaView = text(a, meta, 11, GREEN_DIM);
@@ -187,8 +200,30 @@ public class ReminderCard {
         buttons.setOrientation(LinearLayout.VERTICAL);
         buttons.setPadding(dp(a, 12), 0, dp(a, 12), dp(a, 12));
 
-        Button ok = button(a, "Li, pode fechar", true);
-        buttons.addView(ok, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // a reminder with an action gets "Ir" (does it) next to "Ok" (just closes); a plain one only "Ok"
+        final Button go = r.hasAction() ? button(a, "Ir", true) : null;
+        Button ok = button(a, "Ok", go == null);
+
+        if (go == null) {
+            buttons.addView(ok, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        } else {
+            LinearLayout top = new LinearLayout(a);
+            top.setOrientation(LinearLayout.HORIZONTAL);
+            LinearLayout.LayoutParams goParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2);
+            goParams.rightMargin = dp(a, 8);
+            top.addView(go, goParams);
+            top.addView(ok, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            buttons.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+            go.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    String problem = ReminderAction.perform(a, r);
+                    if (problem == null) confirm(a, r);
+                    else Tuils.sendOutput(Color.YELLOW, a, "lembrete: " + problem + ". O cartão continua aberto.");
+                }
+            });
+        }
 
         LinearLayout row = new LinearLayout(a);
         row.setOrientation(LinearLayout.HORIZONTAL);

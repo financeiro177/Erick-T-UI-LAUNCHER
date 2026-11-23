@@ -8,6 +8,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +33,10 @@ public class AiClient {
 
     private static final String URL = "https://api.anthropic.com/v1/messages";
     private static final String VERSION = "2023-06-01";
-    private static final int MAX_TOKENS = 400;
+    private static final int MAX_TOKENS = 600;
+
+    // requests allowed in one turn (the first one plus the ones that follow tool calls)
+    private static final int MAX_STEPS = 5;
 
     private static final String SYSTEM = "Você é o assistente do T-UI, um launcher de terminal para Android. "
             + "Responda em português, de forma curta e direta, em texto simples (sem markdown, sem tabelas).";
@@ -89,19 +93,36 @@ public class AiClient {
 
         final String model = AiConfig.model(c);
 
+        Turn turn = new Turn();
+        turn.messages.add(new AiConversation.Message("user", phrase));
+
+        info(c, "...");
+        send(c, key, model, turn);
+    }
+
+    /** What one "ai ..." line adds to the conversation, and what it has cost so far. */
+    private static class Turn {
+        final List<AiConversation.Message> messages = new ArrayList<>();
+        long in, out, lastIn;
+        int steps;
+    }
+
+    private static void send(final Context c, final String key, final String model, final Turn turn) {
         String json;
         try {
             JSONArray messages = new JSONArray();
-            List<AiConversation.Message> history = AiConversation.snapshot();
-            for (AiConversation.Message m : history) {
-                messages.put(new JSONObject().put("role", m.role).put("content", m.text));
+            for (AiConversation.Message m : AiConversation.snapshot()) {
+                messages.put(new JSONObject().put("role", m.role).put("content", m.content));
             }
-            messages.put(new JSONObject().put("role", "user").put("content", phrase));
+            for (AiConversation.Message m : turn.messages) {
+                messages.put(new JSONObject().put("role", m.role).put("content", m.content));
+            }
 
             json = new JSONObject()
                     .put("model", model)
                     .put("max_tokens", MAX_TOKENS)
-                    .put("system", SYSTEM)
+                    .put("system", SYSTEM + AiTools.systemExtra(c))
+                    .put("tools", AiTools.definitions())
                     .put("messages", messages)
                     .toString();
         } catch (Exception e) {
@@ -118,7 +139,7 @@ public class AiClient {
                 .post(RequestBody.create(json, JSON))
                 .build();
 
-        info(c, "...");
+        turn.steps++;
 
         CLIENT.newCall(request).enqueue(new Callback() {
             @Override
@@ -130,9 +151,10 @@ public class AiClient {
 
             @Override
             public void onResponse(Call call, Response response) {
+                boolean goesOn = false;
                 try {
                     String body = response.body() != null ? response.body().string() : "";
-                    if (response.code() == 200) handleSuccess(c, model, phrase, body);
+                    if (response.code() == 200) goesOn = handleSuccess(c, key, model, turn, body);
                     else handleError(c, key, response.code(), body);
                 } catch (Exception e) {
                     warn(c, "ai: resposta inesperada da API.");
@@ -140,36 +162,82 @@ public class AiClient {
                     try {
                         response.close();
                     } catch (Exception ignored) {}
-                    BUSY.set(false);
+                    if (!goesOn) BUSY.set(false);
                 }
             }
         });
     }
 
-    private static void handleSuccess(Context c, String model, String phrase, String body) throws Exception {
+    /** Returns true when the model asked for tools and another request was sent (the turn is not over). */
+    private static boolean handleSuccess(Context c, String key, String model, Turn turn, String body) throws Exception {
         JSONObject root = new JSONObject(body);
-
-        StringBuilder text = new StringBuilder();
-        JSONArray content = root.optJSONArray("content");
-        if (content != null) {
-            for (int i = 0; i < content.length(); i++) {
-                JSONObject block = content.optJSONObject(i);
-                if (block != null && "text".equals(block.optString("type"))) text.append(block.optString("text"));
-            }
-        }
-
-        String answer = text.toString().trim();
-        if (answer.length() == 0) {
-            warn(c, "ai: a API respondeu sem texto.");
-            return;
-        }
 
         JSONObject usage = root.optJSONObject("usage");
         long in = usage == null ? 0 : usage.optLong("input_tokens");
         long out = usage == null ? 0 : usage.optLong("output_tokens");
-
-        AiConversation.addExchange(phrase, answer, in, out, System.currentTimeMillis());
+        turn.in += in;
+        turn.out += out;
+        turn.lastIn = in;
         AiUsage.record(c, model, in, out);
+
+        StringBuilder text = new StringBuilder();
+        JSONArray toolResults = new JSONArray();
+        JSONArray content = root.optJSONArray("content");
+        if (content == null) content = new JSONArray();
+
+        boolean wantsTools = "tool_use".equals(root.optString("stop_reason"));
+
+        for (int i = 0; i < content.length(); i++) {
+            JSONObject block = content.optJSONObject(i);
+            if (block == null) continue;
+
+            String type = block.optString("type");
+            if ("text".equals(type)) {
+                text.append(block.optString("text"));
+            } else if ("tool_use".equals(type) && wantsTools) {
+                String result;
+                try {
+                    result = AiTools.run(c, block.optString("name"), block.optJSONObject("input"));
+                } catch (Exception e) {
+                    result = "erro: a ferramenta falhou";
+                }
+                toolResults.put(new JSONObject()
+                        .put("type", "tool_result")
+                        .put("tool_use_id", block.optString("id"))
+                        .put("content", result));
+            }
+        }
+
+        String answer = text.toString().trim();
+
+        if (wantsTools && toolResults.length() > 0) {
+            if (answer.length() > 0) Tuils.sendOutput(Integer.MAX_VALUE, c, answer);
+
+            turn.messages.add(new AiConversation.Message("assistant", content));
+            turn.messages.add(new AiConversation.Message("user", toolResults));
+
+            if (turn.steps < MAX_STEPS && !overLimit(c)) {
+                send(c, key, model, turn);
+                return true;
+            }
+
+            // out of steps: the conversation must still end with an answer of the assistant
+            turn.messages.add(new AiConversation.Message("assistant", "(parei aqui)"));
+            AiConversation.commit(turn.messages, turn.in, turn.out, turn.lastIn, System.currentTimeMillis());
+            warn(c, "ai: parei depois de " + turn.steps + " passos. Diga como continuar.");
+            return false;
+        }
+
+        if (answer.length() == 0) {
+            if (turn.steps == 1) {
+                warn(c, "ai: a API respondeu sem texto.");
+                return false;
+            }
+            answer = "feito.";
+        }
+
+        turn.messages.add(new AiConversation.Message("assistant", answer));
+        AiConversation.commit(turn.messages, turn.in, turn.out, turn.lastIn, System.currentTimeMillis());
 
         Tuils.sendOutput(Integer.MAX_VALUE, c, answer);
 
@@ -186,6 +254,12 @@ public class AiClient {
             warn(c, "ai: esta conversa já tem ~" + AiConversation.contextTokens()
                     + " tokens. Use ai -novo ou ai -fim se quiser recomeçar.");
         }
+        return false;
+    }
+
+    private static boolean overLimit(Context c) {
+        double limit = AiConfig.limitUsd(c);
+        return limit > 0 && AiUsage.cycle(c).cost >= limit * 0.95;
     }
 
     private static void handleError(Context c, String key, int code, String body) {

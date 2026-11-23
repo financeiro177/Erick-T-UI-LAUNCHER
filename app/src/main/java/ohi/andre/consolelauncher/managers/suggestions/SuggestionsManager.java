@@ -35,6 +35,7 @@ import ohi.andre.consolelauncher.commands.CommandAbstraction;
 import ohi.andre.consolelauncher.commands.CommandTuils;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.Param;
+import ohi.andre.consolelauncher.commands.main.raw.ai;
 import ohi.andre.consolelauncher.commands.main.specific.ParamCommand;
 import ohi.andre.consolelauncher.commands.main.specific.PermanentSuggestionCommand;
 import ohi.andre.consolelauncher.managers.AliasManager;
@@ -605,7 +606,9 @@ public class SuggestionsManager {
                         suggestPermanentSuggestions(suggestionList, (PermanentSuggestionCommand) cmd.cmd);
                     }
 
-                    if (cmd.mArgs != null && cmd.mArgs.length > 0 && cmd.cmd instanceof ParamCommand && cmd.nArgs >= 1 && cmd.mArgs[0] instanceof Param && ((Param) cmd.mArgs[0]).args().length + 1 == cmd.nArgs) {
+                    if (cmd.cmd instanceof ai) {
+                        suggestAiOptions(suggestionList, beforeLastSpace, null);
+                    } else if (cmd.mArgs != null && cmd.mArgs.length > 0 && cmd.cmd instanceof ParamCommand && cmd.nArgs >= 1 && cmd.mArgs[0] instanceof Param && ((Param) cmd.mArgs[0]).args().length + 1 == cmd.nArgs) {
 //                        nothing
                     } else {
                         if(cmd.cmd instanceof ParamCommand && (cmd.mArgs == null || cmd.mArgs.length == 0 || cmd.mArgs[0] instanceof String))
@@ -656,7 +659,9 @@ public class SuggestionsManager {
 //                        lastWord = beforeLastSpace .substring(index) + lastWord;
 //                    }
 
-                    if(cmd.cmd instanceof ParamCommand && (cmd.mArgs == null || cmd.mArgs.length == 0 || cmd.mArgs[0] instanceof String)) {
+                    if (cmd.cmd instanceof ai) {
+                        suggestAiOptions(suggestionList, beforeLastSpace, lastWord);
+                    } else if(cmd.cmd instanceof ParamCommand && (cmd.mArgs == null || cmd.mArgs.length == 0 || cmd.mArgs[0] instanceof String)) {
                         suggestParams(pack, suggestionList, (ParamCommand) cmd.cmd, beforeLastSpace , lastWord);
                     } else suggestArgs(pack, cmd.nextArg(), suggestionList, lastWord, beforeLastSpace );
                 } else {
@@ -795,6 +800,27 @@ public class SuggestionsManager {
             case CommandAbstraction.MOCK_PLACE:
                 suggestMockPlaces(info, suggestions, afterLastSpace, beforeLastSpace);
                 break;
+        }
+    }
+
+    // options of the "ai" command. Only right after "ai" and only while the word starts with "-":
+    // as soon as a normal sentence begins, nothing is suggested.
+    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-key"};
+    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo"};
+
+    private void suggestAiOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
+        if (beforeLastSpace == null || beforeLastSpace.trim().contains(Tuils.SPACE)) return;
+
+        String typed = lastWord == null ? Tuils.EMPTYSTRING : lastWord.toLowerCase();
+        if (typed.length() > 0 && !typed.startsWith(Tuils.MINUS)) return;
+
+        for (String o : AI_OPTIONS) {
+            if (!o.startsWith(typed)) continue;
+
+            boolean run = false;
+            for (String r : AI_RUN_ON_CLICK) if (r.equals(o)) run = true;
+
+            suggestions.add(new Suggestion(beforeLastSpace, o, run && clickToLaunch, 0));
         }
     }
 

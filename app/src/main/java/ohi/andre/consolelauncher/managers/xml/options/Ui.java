@@ -319,7 +319,7 @@ public enum Ui implements XMLPrefsSave {
     username {
         @Override
         public String defaultValue() {
-            return "user";
+            return "Teetsuo";
         }
 
         @Override

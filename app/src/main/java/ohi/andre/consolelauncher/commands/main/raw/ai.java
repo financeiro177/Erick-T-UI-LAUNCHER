@@ -99,41 +99,50 @@ public class ai implements CommandAbstraction {
     // ---- usage ----
 
     private static String custo(Context c) {
-        StringBuilder b = new StringBuilder();
-
-        if (AiConversation.isOpen()) {
-            b.append("conversa: ").append(AiConversation.size()).append(" msgs, contexto ~")
-                    .append(AiConversation.contextTokens()).append(" tokens, gastos ")
-                    .append(AiConversation.billedIn()).append(" entrada / ")
-                    .append(AiConversation.billedOut()).append(" saída");
-        } else {
-            b.append("conversa: nenhuma aberta");
-        }
-
-        b.append('\n').append(line("hoje", AiUsage.today(c)));
-        b.append('\n').append(line("7 dias", AiUsage.lastDays(c, 7)));
-
         Calendar now = Calendar.getInstance();
         int day = AiConfig.cycleDay(c);
         AiUsage.Total cycle = AiUsage.cycle(c);
         double limit = AiConfig.limitUsd(c);
-        b.append('\n').append(line("ciclo " + AiUsage.formatDate(AiUsage.cycleStart(now, day)) + " a "
-                + AiUsage.formatDate(AiUsage.nextRenewal(now, day)), cycle));
+        Calendar renew = AiUsage.nextRenewal(now, day);
+        long daysLeft = Math.max(0, (renew.getTimeInMillis() - now.getTimeInMillis()) / 86400000L);
 
-        if (limit > 0) {
-            b.append("\nlimite: ").append(AiUsage.money(cycle.cost)).append(" de ").append(AiUsage.money(limit))
-                    .append(String.format(Locale.US, " (%.1f%%)", cycle.cost * 100 / limit));
+        StringBuilder b = new StringBuilder();
+
+        b.append("== ai: uso ==\n");
+        if (AiConversation.isOpen()) {
+            b.append("conversa: ").append(AiConversation.size()).append(" msgs, contexto ~")
+                    .append(AiConversation.contextTokens()).append(" tk");
         } else {
-            b.append("\nlimite: desligado");
+            b.append("conversa: nenhuma aberta");
         }
 
-        b.append("\nmodelo: ").append(AiConfig.model(c)).append(" | chave: ").append(AiConfig.keyHint(c));
-        b.append("\n(estimativa local; o saldo real fica em Console > Cobrança)");
+        b.append("\n\n").append(row("hoje", AiUsage.today(c)));
+        b.append('\n').append(row("7 dias", AiUsage.lastDays(c, 7)));
+        b.append('\n').append(row("ciclo", cycle));
+        b.append("\n         (").append(AiUsage.formatDate(AiUsage.cycleStart(now, day))).append(" a ")
+                .append(AiUsage.formatDate(renew)).append(")");
+
+        b.append("\n\n");
+        if (limit > 0) {
+            b.append("limite:  ").append(AiUsage.money(limit));
+            b.append(String.format(Locale.US, "\nusado:   %.1f%%", cycle.cost * 100 / limit));
+            b.append("\nresta:   ").append(AiUsage.money(Math.max(0, limit - cycle.cost)));
+        } else {
+            b.append("limite:  desligado");
+        }
+        b.append("\nrenova:  ").append(AiUsage.formatDate(renew)).append(" (em ").append(daysLeft).append(daysLeft == 1 ? " dia)" : " dias)");
+
+        b.append("\n\nmodelo:  ").append(AiConfig.model(c).replace("claude-", ""));
+        b.append("\nchave:   ").append(AiConfig.keyHint(c));
+        b.append("\n(tk = tokens; valores estimados aqui, o saldo real fica em Console > Cobrança)");
         return say(c, b.toString());
     }
 
-    private static String line(String label, AiUsage.Total t) {
-        return label + ": " + t.in + " entrada / " + t.out + " saída, ~" + AiUsage.money(t.cost);
+    // "hoje:    871 tk   US$ 0.0002"
+    private static String row(String label, AiUsage.Total t) {
+        StringBuilder l = new StringBuilder(label).append(':');
+        while (l.length() < 9) l.append(' ');
+        return l.append(t.in + t.out).append(" tk   ").append(AiUsage.money(t.cost)).toString();
     }
 
     private static String limite(Context c, String rest) {

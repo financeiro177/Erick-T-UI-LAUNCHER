@@ -406,43 +406,19 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     }
 
 
-    // Linhas da arte ASCII exibidas no boot, uma por vez.
-    private static final String[] BOOT_ART = {
-            " _____     _   _ ___ ",
-            "|_   _|   | | | |_ _|",
-            "  | |_   _| | | || | ",
-            "  | | | | | | | || | ",
-            "  | | |_| | |_| || | ",
-            "  |_|\\__,_|\\___/|___|",
-            "",
-            "[ TERMINAL DE ACESSO SEGURO ]"
-    };
+    // Arte ASCII do boot ("T-UI"), impressa de uma vez: sem atraso por linha e sem linhas em branco no meio.
+    private static final String BOOT_ART =
+            " _____          _   _  ___ \n" +
+            "|_   _|        | | | ||_ _|\n" +
+            "  | |   _____  | | | | | | \n" +
+            "  | |  |_____| | |_| | | | \n" +
+            "  |_|           \\___/ |___|\n" +
+            "\n" +
+            "[ TERMINAL DE ACESSO SEGURO ]";
 
     private void playBootSequence() {
-        final android.os.Handler bootHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-        final int lineDelay = 90;
-
-        for (int i = 0; i < BOOT_ART.length; i++) {
-            final String line = BOOT_ART[i];
-            bootHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        ui.setOutput(Tuils.span(line + "\n", XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
-                    } catch (Exception ignored) {}
-                }
-            }, i * lineDelay);
-        }
-
-        bootHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ui.setOutput("\n", TerminalManager.CATEGORY_NO_COLOR);
-                    ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
-                } catch (Exception ignored) {}
-            }
-        }, BOOT_ART.length * lineDelay + 150);
+        ui.setOutput(Tuils.span(BOOT_ART, XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
+        ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
     }
 
     private String buildWelcomeMessage() {

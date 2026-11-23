@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 
@@ -21,9 +23,11 @@ import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.specific.ParamCommand;
 import ohi.andre.consolelauncher.managers.mock.LocAddPrompt;
+import ohi.andre.consolelauncher.managers.mock.LocationAccuracy;
 import ohi.andre.consolelauncher.managers.mock.MockLocationService;
 import ohi.andre.consolelauncher.managers.mock.MockLocationStore;
 import ohi.andre.consolelauncher.managers.mock.RealLocation;
+import ohi.andre.consolelauncher.managers.mock.RouteFetcher;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
@@ -101,11 +105,55 @@ public class loc extends ParamCommand {
                 MockLocationStore.Place p = MockLocationStore.place(c, LocAddPrompt.normalize(pack.getString()));
                 if (p == null) return say(c, "loc: local não encontrado (loc -ls)");
 
+                tripSeq++;
                 MockLocationStore.activate(c, p);
                 return startService(c, "ativo: " + p.name);
             }
         },
+        at {
+            // "loc -at -23.55052 -46.63331" or "loc -at -23.55052,-46.63331": mock raw coordinates without saving a place
+            @Override
+            public int[] args() {
+                return new int[] {CommandAbstraction.PLAIN_TEXT};
+            }
+
+            @Override
+            public String exec(ExecutePack pack) {
+                Context c = pack.context;
+
+                double[] ll = parseCoords(c, pack.getString(), "loc -at latitude longitude (ex.: loc -at -23.55052 -46.63331)");
+                if (ll == null) return null;
+
+                tripSeq++;
+                MockLocationStore.activate(c, new MockLocationStore.Place(MANUAL, ll[0], ll[1], 0));
+                return startService(c, String.format(Locale.US, "ativo: %.5f, %.5f", ll[0], ll[1]));
+            }
+        },
+        save {
+            // "loc -save casa -23.55052 -46.63331": save a place from coordinates picked on a map
+            @Override
+            public int[] args() {
+                return new int[] {CommandAbstraction.NO_SPACE_STRING, CommandAbstraction.PLAIN_TEXT};
+            }
+
+            @Override
+            public String exec(ExecutePack pack) {
+                Context c = pack.context;
+
+                String name = LocAddPrompt.normalize(pack.getString());
+                if (name == null) return say(c, "loc: nome inválido");
+
+                double[] ll = parseCoords(c, pack.getString(), "loc -save nome latitude longitude (ex.: loc -save casa -23.55052 -46.63331)");
+                if (ll == null) return null;
+
+                boolean existed = MockLocationStore.place(c, name) != null;
+                if (!MockLocationStore.save(c, new MockLocationStore.Place(name, ll[0], ll[1], 0))) return say(c, "loc: erro ao salvar");
+
+                return say(c, String.format(Locale.US, "%s: %s (%.5f, %.5f)", existed ? "atualizado" : "salvo", name, ll[0], ll[1]));
+            }
+        },
         go {
+            // minutes are optional: without them the duration comes from the distance (road route when enabled, else FALLBACK_KMH)
             @Override
             public int[] args() {
                 return new int[] {CommandAbstraction.MOCK_PLACE, CommandAbstraction.INT};
@@ -113,49 +161,34 @@ public class loc extends ParamCommand {
 
             @Override
             public String exec(ExecutePack pack) {
-                final Context c = pack.context;
-                final MockLocationStore.Place target = MockLocationStore.place(c, LocAddPrompt.normalize(pack.getString()));
-                final int minutes = pack.getInt();
+                String name = pack.getString();
+                int minutes = pack.getInt();
+                if (minutes < 1 || minutes > 24 * 60) return say(pack.context, "loc: minutos entre 1 e 1440");
 
-                if (target == null) return say(c, "loc: local não encontrado (loc -ls)");
-                if (minutes < 1 || minutes > 24 * 60) return say(c, "loc: minutos entre 1 e 1440");
+                return startTrip(pack.context, name, minutes);
+            }
 
-                final long duration = minutes * 60L * 1000L;
+            @Override
+            public String onNotArgEnough(ExecutePack pack, int n) {
+                // n counts the option itself: 2 = "-go name", without the minutes
+                Object name = n == 2 ? pack.get(Object.class, 1) : null;
+                if (name == null) return pack.context.getString(R.string.help_loc);
 
-                MockLocationStore.State s = MockLocationStore.state(c);
-                if (s.isOn() && s.hasPosition) {
-                    // already mocking: leave from the point being emitted right now
-                    MockLocationStore.startGo(c, target, s.lat, s.lon, s.alt, duration);
-                    return startService(c, "indo para " + target.name + " em " + minutes + " min");
-                }
-
-                // mock off: leave from the real position
-                if (!RealLocation.hasPermission(c)) return say(c, "loc: sem permissão de localização");
-                RealLocation.get(c, new RealLocation.Callback() {
-                    @Override
-                    public void onResult(Location l) {
-                        if (l == null) {
-                            say(c, "loc: sem posição atual; use loc -use antes");
-                            return;
-                        }
-                        MockLocationStore.startGo(c, target, l.getLatitude(), l.getLongitude(), l.hasAltitude() ? l.getAltitude() : target.alt, duration);
-                        startService(c, "indo para " + target.name + " em " + minutes + " min");
-                    }
-                });
-                return null;
+                return startTrip(pack.context, name.toString(), 0);
             }
         },
         off {
+            // only stops the mock; the real position comes back whenever the phone finds it
             @Override
             public String exec(ExecutePack pack) {
-                return turnOff(pack.context);
+                return turnOff(pack.context, false);
             }
         },
         reset {
-            // same as -off
+            // stops the mock and keeps looking for the real position until it is back
             @Override
             public String exec(ExecutePack pack) {
-                return turnOff(pack.context);
+                return turnOff(pack.context, true);
             }
         },
         status {
@@ -244,6 +277,105 @@ public class loc extends ParamCommand {
         }
     }
 
+    /** Name shown as the active place while raw coordinates ("-at") are being mocked. */
+    private static final String MANUAL = "(manual)";
+
+    // bumped by every command that changes what is being mocked, so a route still being fetched is dropped
+    private static volatile int tripSeq = 0;
+
+    // Road routes come from an external routing server (RouteFetcher), which receives the start and destination
+    // of every "-go". Set to false to move in a straight line and send nothing anywhere.
+    private static final boolean ROADS_ENABLED = true;
+
+    // straight-line trips without minutes (no route available) assume this speed
+    private static final double FALLBACK_KMH = 40;
+
+    /** Parses "lat lon" or "lat,lon"; prints the reason and returns null when it is not a valid pair. */
+    private static double[] parseCoords(Context c, String text, String usage) {
+        String[] parts = text == null ? new String[0] : text.trim().split("[\\s,;]+");
+        if (parts.length != 2) {
+            say(c, "loc: use " + usage);
+            return null;
+        }
+
+        double lat, lon;
+        try {
+            lat = Double.parseDouble(parts[0]);
+            lon = Double.parseDouble(parts[1]);
+        } catch (NumberFormatException e) {
+            say(c, "loc: coordenadas inválidas (use ponto como decimal)");
+            return null;
+        }
+        if (Double.isNaN(lat) || Double.isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            say(c, "loc: latitude entre -90 e 90, longitude entre -180 e 180");
+            return null;
+        }
+        return new double[] {lat, lon};
+    }
+
+    /** "-go": finds where the trip starts (the point being mocked, or the real position) and plans it. */
+    private static String startTrip(final Context c, String name, final int minutes) {
+        final MockLocationStore.Place target = MockLocationStore.place(c, LocAddPrompt.normalize(name));
+        if (target == null) return say(c, "loc: local não encontrado (loc -ls)");
+
+        final int seq = ++tripSeq;
+
+        MockLocationStore.State s = MockLocationStore.state(c);
+        if (s.isOn() && s.hasPosition) {
+            // already mocking: leave from the point being emitted right now
+            planTrip(c, target, s.lat, s.lon, s.alt, minutes, seq);
+            return null;
+        }
+
+        // mock off: leave from the real position
+        if (!RealLocation.hasPermission(c)) return say(c, "loc: sem permissão de localização");
+        RealLocation.get(c, new RealLocation.Callback() {
+            @Override
+            public void onResult(Location l) {
+                if (l == null) {
+                    say(c, "loc: sem posição atual; use loc -use antes");
+                    return;
+                }
+                planTrip(c, target, l.getLatitude(), l.getLongitude(), l.hasAltitude() ? l.getAltitude() : target.alt, minutes, seq);
+            }
+        });
+        return null;
+    }
+
+    /** Fetches the road route in the background and starts the trip; without a route it goes in a straight line. */
+    private static void planTrip(final Context c, final MockLocationStore.Place target, final double startLat, final double startLon,
+                                 final double startAlt, final int minutes, final int seq) {
+        if (ROADS_ENABLED) say(c, "loc: calculando rota...");
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                RouteFetcher.Route route = ROADS_ENABLED ? RouteFetcher.fetch(startLat, startLon, target.lat, target.lon) : null;
+
+                // another loc command arrived while the route was being fetched
+                if (seq != tripSeq) return;
+
+                long duration;
+                String path = null, message;
+                if (route != null) {
+                    path = route.encode();
+                    duration = minutes > 0 ? minutes * 60000L : Math.round(route.durationSeconds * 1000);
+                    message = String.format(Locale.US, "indo para %s por estradas: %.1f km em %d min", target.name,
+                            route.distanceMeters / 1000, Math.max(1, Math.round(duration / 60000d)));
+                } else {
+                    float[] r = new float[1];
+                    Location.distanceBetween(startLat, startLon, target.lat, target.lon, r);
+                    duration = minutes > 0 ? minutes * 60000L : Math.max(60000L, Math.round(r[0] / (FALLBACK_KMH / 3.6) * 1000));
+                    message = String.format(Locale.US, (ROADS_ENABLED ? "sem rota disponível: " : "") + "indo para %s em linha reta, %.1f km em %d min", target.name,
+                            r[0] / 1000, Math.max(1, Math.round(duration / 60000d)));
+                }
+
+                MockLocationStore.startGo(c, target, startLat, startLon, startAlt, duration, path);
+                startService(c, message);
+            }
+        }, "loc-route").start();
+    }
+
     /** Prints a line in cyan. Returns null so the caller can "return say(...)" without printing twice. */
     private static String say(Context c, String text) {
         Tuils.sendOutput(MockLocationService.CYAN, c, text);
@@ -251,19 +383,75 @@ public class loc extends ParamCommand {
     }
 
     /** Stops the mock: the test providers are removed and the other apps see the real GPS again. */
-    private static String turnOff(Context c) {
+    private static String turnOff(Context c, boolean bringRealBack) {
+        tripSeq++;
         MockLocationStore.clear(c);
         try {
             MockLocationService.stop(c);
         } catch (Exception ignored) {}
-        return say(c, "mock desligado, GPS real");
+        // also when the service was already dead, so nothing stays stuck replacing the real providers
+        MockLocationService.releaseProviders(c);
+        MockLocationService.releaseFused(c);
+
+        if (!MockLocationService.isMockAppSelected(c)) {
+            // without the selection the system refuses the cleanup above
+            say(c, "loc: selecione este app como localização fictícia (loc -dev) e repita o loc -reset; se a posição real não voltar, reinicie o aparelho");
+        }
+
+        if (!bringRealBack) return say(c, "mock desligado");
+
+        say(c, "mock desligado, buscando a posição real...");
+        LocationAccuracy.askToTurnOn(c);
+        confirmRealLocation(c, tripSeq, REAL_ATTEMPTS, 2000);
+        return null;
+    }
+
+    // "-reset" asks for the real position this many times (each attempt lasts up to ~30 s) before giving up
+    private static final int REAL_ATTEMPTS = 6;
+
+    /**
+     * "-reset": keeps the real providers awake until a real position arrives, then prints it. Asking for the
+     * position is what makes the GPS look for satellites again, so the other apps get it back sooner too.
+     */
+    private static void confirmRealLocation(final Context c, final int seq, final int attemptsLeft, long delayMs) {
+        if (!RealLocation.hasPermission(c)) {
+            say(c, "loc: sem permissão de localização para buscar a posição real");
+            return;
+        }
+
+        // the first delay gives time for the test providers to be removed and for Google's provider to leave the mock mode
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // the mock was turned on again meanwhile
+                if (seq != tripSeq) return;
+
+                RealLocation.get(c, new RealLocation.Callback() {
+                    @Override
+                    public void onResult(Location l) {
+                        if (seq != tripSeq) return;
+
+                        // an old remembered position does not count: only a fix from the last few minutes
+                        if (l != null && System.currentTimeMillis() - l.getTime() > 3 * 60 * 1000) l = null;
+
+                        if (l != null) {
+                            say(c, String.format(Locale.US, "posição real de volta: %.5f, %.5f (±%.0f m)", l.getLatitude(), l.getLongitude(), l.getAccuracy()));
+                        } else if (attemptsLeft > 1) {
+                            confirmRealLocation(c, seq, attemptsLeft - 1, 1000);
+                        } else {
+                            say(c, "loc: ainda sem posição real. Confira se a Localização e a Precisão de local do Google estão ligadas; se estiverem, reinicie o aparelho");
+                        }
+                    }
+                });
+            }
+        }, delayMs);
     }
 
     private static String startService(Context c, String okMessage) {
         if (!MockLocationService.isMockAppSelected(c)) {
-            MockLocationStore.clear(c);
+            // the state stays saved: the mock starts by itself once the app is selected
             MockLocationService.sendSelectAppMessage(c);
-            return null;
+            return say(c, "loc: pendente até selecionar o app (" + okMessage + ")");
         }
 
         try {
@@ -272,7 +460,11 @@ public class loc extends ParamCommand {
             MockLocationStore.clear(c);
             return say(c, "loc: não foi possível iniciar o serviço");
         }
-        return say(c, okMessage);
+        say(c, okMessage);
+
+        // with Google Location Accuracy on, the real Wi-Fi/cell position may show up now and then
+        LocationAccuracy.askToTurnOff(c);
+        return null;
     }
 
     @Override

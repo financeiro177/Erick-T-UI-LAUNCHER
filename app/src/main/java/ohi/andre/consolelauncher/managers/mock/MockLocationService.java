@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
+import android.location.provider.ProviderProperties;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -23,6 +24,9 @@ import android.provider.Settings;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+
 import java.util.Random;
 
 import ohi.andre.consolelauncher.R;
@@ -30,7 +34,9 @@ import ohi.andre.consolelauncher.managers.TerminalManager;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
- * Foreground service that feeds the GPS and NETWORK test providers every few seconds.
+ * Foreground service that feeds the GPS and NETWORK test providers once per second, and the same
+ * position to the Google fused location provider in mock mode. Without the latter, apps that read the
+ * fused provider get the real Wi-Fi/cell position from time to time.
  * It owns no state: on every tick it reads MockLocationStore, so the commands only have to
  * write the store and make sure the service is started.
  */
@@ -42,7 +48,7 @@ public class MockLocationService extends Service {
     private static final String CHANNEL_ID = "mock_location";
     private static final int NOTIFICATION_ID = 7341;
 
-    private static final long TICK_MS = 2500;
+    private static final long TICK_MS = 1000;
     private static final double JITTER_METERS = 2;
     private static final double METERS_PER_DEGREE = 111320;
 
@@ -55,6 +61,16 @@ public class MockLocationService extends Service {
     private LocationManager locationManager;
     private final Random random = new Random();
 
+    // Play services may restart and forget the mock mode: it is set again every this many ticks
+    private static final int FUSED_REARM_TICKS = 15;
+
+    private FusedLocationProviderClient fused;
+    private int fusedTicks = 0;
+
+    // road route of the running trip, parsed once per trip (the key is the trip start time)
+    private long pathKey = -1;
+    private double[] pathLat, pathLon, pathCum;
+
     private boolean providersReady = false;
     private float accuracy = 8f;
     private float lastBearing = 0f;
@@ -65,6 +81,55 @@ public class MockLocationService extends Service {
 
     public static void stop(Context context) {
         context.stopService(new Intent(context, MockLocationService.class));
+    }
+
+    /**
+     * Restarts the service when a mock is saved as active but nothing is emitting it: after an app
+     * update, a force stop, or a sticky restart refused by the system. Called whenever the launcher
+     * comes to the screen and after boot/update, which are moments where a foreground service may start.
+     */
+    public static void ensureRunning(Context context) {
+        try {
+            if (running) return;
+
+            MockLocationStore.State s = MockLocationStore.state(context);
+            if (!s.isOn()) return;
+
+            // not selected: stay paused without repeating the warning; resumes once it is selected again
+            if (!isMockAppSelected(context)) return;
+
+            start(context);
+            Tuils.sendOutput(CYAN, context, "loc: simulação retomada (" + (s.goTarget != null ? "a caminho de " + s.goTarget : s.active) + ")");
+        } catch (Exception e) {
+            // start refused right now: the next time the launcher is shown tries again
+        }
+    }
+
+    /**
+     * Removes the GPS and NETWORK test providers even when no service is running. Providers left behind by a
+     * killed process or by a previous install keep the real ones replaced and silent: no app gets a position.
+     */
+    public static void releaseProviders(Context context) {
+        try {
+            LocationManager lm = (LocationManager) context.getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return;
+
+            for (String provider : PROVIDERS) {
+                try {
+                    lm.setTestProviderEnabled(provider, false);
+                } catch (Exception ignored) {}
+                try {
+                    lm.removeTestProvider(provider);
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /** Gives the Google fused location provider back to the real sensors. Safe to call at any time. */
+    public static void releaseFused(Context context) {
+        try {
+            LocationServices.getFusedLocationProviderClient(context.getApplicationContext()).setMockMode(false);
+        } catch (Throwable ignored) {}
     }
 
     /** True when this app is the one chosen in Developer options > Select mock location app. */
@@ -133,8 +198,12 @@ public class MockLocationService extends Service {
                 @Override
                 public void run() {
                     removeProviders();
+                    // on this thread, so it always comes after a tick that was still feeding the fused provider
+                    releaseFused(MockLocationService.this);
                 }
             });
+        } else {
+            releaseFused(this);
         }
         if (thread != null) thread.quitSafely();
 
@@ -155,8 +224,9 @@ public class MockLocationService extends Service {
                     return;
                 }
             } catch (SecurityException e) {
-                // the launcher is not the selected mock location app
-                MockLocationStore.clear(MockLocationService.this);
+                // the launcher is not the selected mock location app (anymore). The state is kept:
+                // ensureRunning() resumes the mock as soon as the app is selected again
+                say("loc: simulação pausada, GPS real visível");
                 sendSelectAppMessage(MockLocationService.this);
                 stopSelf();
                 return;
@@ -165,7 +235,7 @@ public class MockLocationService extends Service {
                 providersReady = false;
             }
 
-            if (running && handler != null) handler.postDelayed(this, TICK_MS + random.nextInt(500));
+            if (running && handler != null) handler.postDelayed(this, TICK_MS);
         }
     };
 
@@ -196,14 +266,40 @@ public class MockLocationService extends Service {
                 alt = target.alt;
                 say("loc: chegou em " + target.name);
             } else {
-                lat = s.goStartLat + (target.lat - s.goStartLat) * f;
-                lon = s.goStartLon + (target.lon - s.goStartLon) * f;
+                loadPath(s.goStart);
                 alt = target.alt;
 
                 float[] r = new float[2];
-                Location.distanceBetween(s.goStartLat, s.goStartLon, target.lat, target.lon, r);
-                speed = (float) (r[0] / (s.goDuration / 1000d));
-                lastBearing = (r[1] + 360f) % 360f;
+                if (pathCum != null) {
+                    // along the road route: f of the total length, then inside the segment that holds that distance
+                    int last = pathCum.length - 1;
+                    double d = f * pathCum[last];
+
+                    int lo = 0, hi = last;
+                    while (hi - lo > 1) {
+                        int mid = (lo + hi) >>> 1;
+                        if (pathCum[mid] <= d) lo = mid;
+                        else hi = mid;
+                    }
+
+                    double seg = pathCum[hi] - pathCum[lo];
+                    double t = seg > 0 ? (d - pathCum[lo]) / seg : 0;
+                    lat = pathLat[lo] + (pathLat[hi] - pathLat[lo]) * t;
+                    lon = pathLon[lo] + (pathLon[hi] - pathLon[lo]) * t;
+
+                    speed = (float) (pathCum[last] / (s.goDuration / 1000d));
+                    if (seg > 0) {
+                        Location.distanceBetween(pathLat[lo], pathLon[lo], pathLat[hi], pathLon[hi], r);
+                        lastBearing = (r[1] + 360f) % 360f;
+                    }
+                } else {
+                    lat = s.goStartLat + (target.lat - s.goStartLat) * f;
+                    lon = s.goStartLon + (target.lon - s.goStartLon) * f;
+
+                    Location.distanceBetween(s.goStartLat, s.goStartLon, target.lat, target.lon, r);
+                    speed = (float) (r[0] / (s.goDuration / 1000d));
+                    lastBearing = (r[1] + 360f) % 360f;
+                }
 
                 MockLocationStore.updatePosition(this, lat, lon);
             }
@@ -240,9 +336,55 @@ public class MockLocationService extends Service {
                 l.setBearingAccuracyDegrees(10f);
             }
             locationManager.setTestProviderLocation(provider, l);
+
+            if (LocationManager.GPS_PROVIDER.equals(provider)) feedFused(l);
         }
 
         return true;
+    }
+
+    /** Parses the saved route of the trip started at goStart; leaves pathCum null for a straight-line trip. */
+    private void loadPath(long goStart) {
+        if (pathKey == goStart) return;
+        pathKey = goStart;
+        pathLat = pathLon = pathCum = null;
+
+        try {
+            String path = MockLocationStore.goPath(this);
+            if (path == null || path.length() == 0) return;
+
+            String[] points = path.split(";");
+            if (points.length < 2) return;
+
+            double[] la = new double[points.length], lo = new double[points.length], cum = new double[points.length];
+            float[] r = new float[1];
+            for (int i = 0; i < points.length; i++) {
+                int comma = points[i].indexOf(',');
+                la[i] = Double.parseDouble(points[i].substring(0, comma));
+                lo[i] = Double.parseDouble(points[i].substring(comma + 1));
+                if (i > 0) {
+                    Location.distanceBetween(la[i - 1], lo[i - 1], la[i], lo[i], r);
+                    cum[i] = cum[i - 1] + r[0];
+                }
+            }
+            if (cum[points.length - 1] <= 0) return;
+
+            pathLat = la;
+            pathLon = lo;
+            pathCum = cum;
+        } catch (Exception e) {
+            // unreadable route: the trip goes in a straight line
+            pathLat = pathLon = pathCum = null;
+        }
+    }
+
+    /** Failures here (no Play services, app not selected) never stop the test providers above. */
+    private void feedFused(Location l) {
+        try {
+            if (fused == null) fused = LocationServices.getFusedLocationProviderClient(this);
+            if (fusedTicks++ % FUSED_REARM_TICKS == 0) fused.setMockMode(true);
+            fused.setMockLocation(l);
+        } catch (Throwable ignored) {}
     }
 
     private void addProviders() {
@@ -255,9 +397,23 @@ public class MockLocationService extends Service {
             } catch (Exception ignored) {}
 
             boolean gps = LocationManager.GPS_PROVIDER.equals(provider);
-            // requiresNetwork, requiresSatellite, requiresCell, hasMonetaryCost,
-            // supportsAltitude, supportsSpeed, supportsBearing, powerRequirement (1 = low), accuracy (1 = fine)
-            locationManager.addTestProvider(provider, !gps, gps, false, false, true, true, true, 1, 1);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                locationManager.addTestProvider(provider, new ProviderProperties.Builder()
+                        .setHasNetworkRequirement(!gps)
+                        .setHasSatelliteRequirement(gps)
+                        .setHasCellRequirement(false)
+                        .setHasMonetaryCost(false)
+                        .setHasAltitudeSupport(true)
+                        .setHasSpeedSupport(true)
+                        .setHasBearingSupport(true)
+                        .setPowerUsage(ProviderProperties.POWER_USAGE_LOW)
+                        .setAccuracy(ProviderProperties.ACCURACY_FINE)
+                        .build());
+            } else {
+                // requiresNetwork, requiresSatellite, requiresCell, hasMonetaryCost,
+                // supportsAltitude, supportsSpeed, supportsBearing, powerRequirement (1 = low), accuracy (1 = fine)
+                locationManager.addTestProvider(provider, !gps, gps, false, false, true, true, true, 1, 1);
+            }
             locationManager.setTestProviderEnabled(provider, true);
         }
     }

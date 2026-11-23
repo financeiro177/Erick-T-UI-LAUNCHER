@@ -10,9 +10,12 @@ import android.os.Build;
 
 import androidx.core.content.ContextCompat;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Reads the real (non mocked) position of the device, never on the main thread.
@@ -51,20 +54,43 @@ public class RealLocation {
                         return;
                     }
 
-                    String provider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER
-                            : lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ? LocationManager.NETWORK_PROVIDER : null;
-                    if (provider == null) {
+                    // every source at once (Google fused, satellites, Wi-Fi/cell): the first real fix wins.
+                    // GPS alone can take minutes indoors, or right after the mock is turned off
+                    final List<String> sources = new ArrayList<>();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && lm.isProviderEnabled(LocationManager.FUSED_PROVIDER)) {
+                        sources.add(LocationManager.FUSED_PROVIDER);
+                    }
+                    if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) sources.add(LocationManager.GPS_PROVIDER);
+                    if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) sources.add(LocationManager.NETWORK_PROVIDER);
+
+                    if (sources.isEmpty()) {
                         callback.onResult(last);
                         return;
                     }
 
-                    // the system gives up by itself after ~30 s and delivers null
-                    lm.getCurrentLocation(provider, null, executor, new java.util.function.Consumer<Location>() {
-                        @Override
-                        public void accept(Location location) {
-                            callback.onResult(location != null && !isMock(location) ? location : last);
+                    final AtomicBoolean done = new AtomicBoolean(false);
+                    final AtomicInteger pending = new AtomicInteger(sources.size());
+
+                    for (String provider : sources) {
+                        try {
+                            // the system gives up by itself after ~30 s and delivers null
+                            lm.getCurrentLocation(provider, null, executor, new java.util.function.Consumer<Location>() {
+                                @Override
+                                public void accept(Location location) {
+                                    boolean real = location != null && !isMock(location);
+                                    int left = pending.decrementAndGet();
+
+                                    if (real) {
+                                        if (done.compareAndSet(false, true)) callback.onResult(location);
+                                    } else if (left == 0 && done.compareAndSet(false, true)) {
+                                        callback.onResult(last);
+                                    }
+                                }
+                            });
+                        } catch (Exception e) {
+                            if (pending.decrementAndGet() == 0 && done.compareAndSet(false, true)) callback.onResult(last);
                         }
-                    });
+                    }
                 } catch (Exception e) {
                     callback.onResult(null);
                 }

@@ -27,6 +27,7 @@ public class AiConversation {
     private static long billedIn, billedOut;   // tokens spent by this conversation so far
     private static long lastInput;             // input tokens of the last request ~ current size of the context
     private static boolean sizeWarned;
+    private static String modelOverride;       // model chosen for this conversation only; null = the default
 
     public static synchronized boolean isOpen() {
         return !messages.isEmpty();
@@ -42,6 +43,15 @@ public class AiConversation {
         lastActivity = 0;
         billedIn = billedOut = lastInput = 0;
         sizeWarned = false;
+        modelOverride = null;
+    }
+
+    public static synchronized String modelOverride() {
+        return modelOverride;
+    }
+
+    public static synchronized void setModelOverride(String model) {
+        modelOverride = model;
     }
 
     /** Copy of the history, to be sent together with the new user message. */

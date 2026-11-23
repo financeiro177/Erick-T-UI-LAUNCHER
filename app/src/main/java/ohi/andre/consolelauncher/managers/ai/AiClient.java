@@ -47,7 +47,10 @@ public class AiClient {
             + "loc -save [nome] [lat] [lon], loc -add, loc -ls, loc -use [nome], loc -at [lat] [lon], loc -go [nome] [minutos], loc -reset, loc -status, loc -rm [nome]. "
             + "t-lau -config -default (passo a passo dos ajustes) e t-lau -config -status. help lista todos; exit sai ou troca o launcher. "
             + "As opções levam hífen: se o usuário escrever uma sem o hífen (ex.: ai custo), diga o comando certo. "
-            + "Você não executa comandos do terminal; diga o que ele deve digitar.";
+            + "Quando ele perguntar como fazer algo no celular ou no T-Lau (ver apps, contatos, wifi, notas, tema...), "
+            + "consulte listar_comandos e ajuda_comando e responda com o comando exato; não diga que não sabe sem consultar. "
+            + "Você pode abrir apps (abrir_app) e endereços https (abrir_link) na hora; para tocar música ou buscar algo num app, "
+            + "abra o link de busca desse app. Você não digita comandos do terminal por ele nem controla a reprodução: diga isso em uma frase quando for o caso.";
 
     public static final int INFO = Color.CYAN;
     public static final int WARN = Color.YELLOW;

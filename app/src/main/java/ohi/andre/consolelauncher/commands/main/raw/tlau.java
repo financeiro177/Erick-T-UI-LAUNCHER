@@ -9,7 +9,12 @@ import ohi.andre.consolelauncher.R;
 import ohi.andre.consolelauncher.commands.CommandAbstraction;
 import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.commands.main.MainPack;
+import ohi.andre.consolelauncher.managers.ai.AiConfig;
+import ohi.andre.consolelauncher.managers.ai.AiUsage;
 import ohi.andre.consolelauncher.managers.tlau.TlauSetup;
+import ohi.andre.consolelauncher.managers.tlau.TlauUser;
+import ohi.andre.consolelauncher.managers.xml.XMLPrefsManager;
+import ohi.andre.consolelauncher.managers.xml.options.Theme;
 import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
@@ -25,19 +30,73 @@ public class tlau implements CommandAbstraction {
     @Override
     public String exec(ExecutePack pack) {
         Context c = pack.context;
-        String line = pack.getString().trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        // the "-" is optional: "t-lau config ia modelo" works like "t-lau -config -ia -modelo"
+        String raw = pack.getString().trim().replaceAll("\\s+", " ");
+        String[] words = raw.length() == 0 ? new String[0] : raw.split(" ");
+        String[] w = new String[words.length];
+        for (int k = 0; k < words.length; k++) w[k] = words[k].toLowerCase(Locale.ROOT).replaceFirst("^-+", "");
 
-        if (line.equals("-config -default") || line.equals("-config default")) {
-            new TlauSetup().begin((MainPack) pack);
+        String a = w.length > 0 ? w[0] : "", b = w.length > 1 ? w[1] : "", d = w.length > 2 ? w[2] : "";
+        int artColor = XMLPrefsManager.getColor(Theme.input_color);
+
+        if (a.equals("user") || a.equals("usuario") || a.equals("usuário")) {
+            if (b.length() > 0) {
+                if (TlauUser.set(c, b) == null) return say(c, "t-lau: use teetsuuo ou erick.\n" + TlauUser.list(c));
+                TlauUser.announce(c, artColor);
+                return null;
+            }
+
+            say(c, TlauUser.list(c) + "\nQuem está mexendo? (digite o nome ou o número)");
+            ((MainPack) pack).redirectator.prepareRedirection(new TlauUser(artColor));
             return null;
         }
 
-        if (line.equals("-config -status") || line.equals("-config status") || line.equals("-status")) {
-            Tuils.sendOutput(Color.CYAN, c, TlauSetup.report(c));
-            return null;
+        if (a.equals("status")) return say(c, TlauSetup.report(c));
+
+        if (a.equals("config")) {
+            if (b.equals("default") || b.equals("padrao") || b.equals("padrão")) {
+                new TlauSetup().begin((MainPack) pack);
+                return null;
+            }
+            if (b.equals("status")) return say(c, TlauSetup.report(c));
+
+            if (b.equals("ia") || b.equals("ai")) {
+                if (d.equals("modelo") || d.equals("model") || d.equals("modelos")) {
+                    if (w.length > 3) {
+                        String m = AiConfig.resolveModel(w[3]);
+                        if (m == null) return say(c, "t-lau: modelo desconhecido.\n" + AiConfig.modelList(c));
+                        AiConfig.setModel(c, m);
+                        return say(c, m.equals(AiConfig.defaultModel()) ? "t-lau: modelo = " + m + " (o padrão)"
+                                : "t-lau: modelo = " + m + " só nesta conversa; ao encerrar volta ao padrão");
+                    }
+                    return say(c, "O modelo é o \"cérebro\" que responde no comando ai. O mais barato é sempre o padrão; "
+                            + "um mais forte custa mais e vale só para a conversa em que você o escolher.\n" + AiConfig.modelList(c)
+                            + "\nPor aqui: t-lau -config -ia -modelo sonnet");
+                }
+
+                double limit = AiConfig.limitUsd(c);
+                int warn = AiConfig.warnTokens(c);
+                return say(c, "== t-lau: IA ==\n"
+                        + "modelo:  " + AiConfig.model(c).replace("claude-", "") + "  (t-lau -config -ia -modelo)\n"
+                        + "limite:  " + (limit > 0 ? AiUsage.money(limit) : "desligado") + "  (ai -limite 100)\n"
+                        + "ciclo:   dia " + AiConfig.cycleDay(c) + "  (ai -ciclo 8)\n"
+                        + "aviso:   " + (warn > 0 ? warn + " tokens" : "desligado") + "  (ai -aviso 3000)\n"
+                        + "chave:   " + AiConfig.keyHint(c) + "  (ai -key)\n"
+                        + "gasto e uso: ai -custo | memória: ai -memory");
+            }
+
+            return say(c, "== t-lau -config ==\n"
+                    + "-default -> passo a passo do que precisa estar ativado\n"
+                    + "-status  -> o que está ativado e o que falta\n"
+                    + "-ia      -> ajustes da IA (-ia -modelo lista e explica os modelos)");
         }
 
         return c.getString(helpRes());
+    }
+
+    private static String say(Context c, String text) {
+        Tuils.sendOutput(Color.CYAN, c, text);
+        return null;
     }
 
     @Override

@@ -146,6 +146,7 @@ public class MainManager {
         multipleCmdSeparator = XMLPrefsManager.get(Behavior.multiple_cmd_separator);
 
         CommandGroup group = new CommandGroup(mContext, COMMANDS_PKG);
+        ohi.andre.consolelauncher.managers.ai.AiTools.commands = group;
 
         try {
             contactManager = new ContactManager(mContext);

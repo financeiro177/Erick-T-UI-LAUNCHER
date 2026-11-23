@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import ohi.andre.consolelauncher.commands.CommandAbstraction;
+import ohi.andre.consolelauncher.commands.CommandGroup;
 import ohi.andre.consolelauncher.managers.reminder.ReminderAction;
 import ohi.andre.consolelauncher.managers.reminder.ReminderReceiver;
 import ohi.andre.consolelauncher.managers.reminder.ReminderScheduler;
@@ -17,10 +19,13 @@ import ohi.andre.consolelauncher.managers.reminder.ReminderStore;
 
 /**
  * The tools the model may call during "ai ...": reminders, the contact search and the memory.
- * Every tool runs on the phone and returns a short text. None of them sends a message, places a call
- * or opens anything: an action only happens later, when the user taps "Ir" on the reminder card.
+ * Every tool runs on the phone and returns a short text. None of them sends a message or places a call:
+ * that only happens when the user taps "Ir" on the reminder card. Opening an app or a link is done right away.
  */
 public class AiTools {
+
+    /** The commands of the terminal, set by MainManager when the launcher starts. */
+    public static volatile CommandGroup commands;
 
     private static final String WHEN_FORMAT = "yyyy-MM-dd HH:mm";
 
@@ -99,6 +104,18 @@ public class AiTools {
                         .put("ligar_direto", prop("boolean", "ligar: true só se o usuário pediu para discar sem passar pelo discador")),
                 "titulo", "quando"));
 
+        tools.put(tool("abrir_app", "Abre agora um app instalado, pelo nome. Use quando o usuário pedir para abrir um app.",
+                new JSONObject().put("nome", prop("string", "Nome do app, como aparece no celular")), "nome"));
+
+        tools.put(tool("abrir_link", "Abre agora um endereço https (site, ou busca dentro de um app que aceita links, "
+                        + "como https://music.youtube.com/search?q=rap para tocar música no YouTube Music).",
+                new JSONObject().put("url", prop("string", "Endereço começando com https://")), "url"));
+
+        tools.put(tool("listar_comandos", "Lista os nomes de todos os comandos do terminal T-Lau.", new JSONObject()));
+
+        tools.put(tool("ajuda_comando", "Devolve o texto de ajuda de um comando do T-Lau: o que faz e suas opções.",
+                new JSONObject().put("nome", prop("string", "Nome do comando, como em listar_comandos")), "nome"));
+
         tools.put(tool("listar_lembretes", "Lista os lembretes existentes, com número e hora.", new JSONObject()));
 
         tools.put(tool("remover_lembrete", "Remove um lembrete pelo número. Só use quando o usuário pedir.",
@@ -128,6 +145,48 @@ public class AiTools {
                 return createReminder(c, in);
             case "listar_lembretes":
                 return listReminders(c);
+            case "abrir_app": {
+                android.content.Intent launch = ReminderAction.findApp(c, in.optString("nome"));
+                if (launch == null) return "erro: não há app instalado com esse nome";
+                try {
+                    launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    c.startActivity(launch);
+                    return "ok, app aberto";
+                } catch (Exception e) {
+                    return "erro: não foi possível abrir o app";
+                }
+            }
+            case "abrir_link": {
+                String url = in.optString("url").trim();
+                if (!url.startsWith("https://")) return "erro: o endereço deve começar com https://";
+                try {
+                    android.content.Intent view = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
+                    view.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                    c.startActivity(view);
+                    return "ok, aberto";
+                } catch (Exception e) {
+                    return "erro: não foi possível abrir o endereço";
+                }
+            }
+            case "listar_comandos": {
+                CommandGroup g = commands;
+                if (g == null) return "erro: lista indisponível";
+                StringBuilder names = new StringBuilder("t-lau");
+                for (String n : g.getCommandNames()) if (!"tlau".equals(n)) names.append(", ").append(n);
+                return names.toString();
+            }
+            case "ajuda_comando": {
+                CommandGroup g = commands;
+                String n = in.optString("nome").trim().toLowerCase(Locale.ROOT);
+                if (n.equals("t-lau")) n = "tlau";
+                CommandAbstraction cmd = g == null ? null : g.getCommandByName(n);
+                if (cmd == null) return "erro: não existe esse comando; veja listar_comandos";
+                try {
+                    return n + ": " + c.getString(cmd.helpRes());
+                } catch (Exception e) {
+                    return "erro: sem texto de ajuda";
+                }
+            }
             case "remover_lembrete": {
                 int id = in.optInt("numero", -1);
                 if (!ReminderStore.remove(c, id)) return "erro: não existe o lembrete " + id;

@@ -406,19 +406,11 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     }
 
 
-    // Arte ASCII do boot ("T-LAU", Teetsuuo Launcher). Vem depois das boas-vindas, para ficar logo acima
+    // A arte do boot (T-LAU ou E-LAU, conforme "t-lau -user") vem depois das boas-vindas, para ficar logo acima
     // da linha de comando e aparecer mesmo com o teclado aberto.
-    private static final String BOOT_ART =
-            " _____         _         _     _   _\n" +
-            "|_   _|       | |       / \\   | | | |\n" +
-            "  | |   _____ | |      / _ \\  | | | |\n" +
-            "  | |  |_____|| |___  / ___ \\ | |_| |\n" +
-            "  |_|         |_____|/_/   \\_\\ \\___/\n" +
-            "[ T-LAU :: TEETSUUO LAUNCHER ]";
-
     private void playBootSequence() {
         ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
-        ui.setOutput(Tuils.span(BOOT_ART, XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
+        ui.setOutput(Tuils.span(ohi.andre.consolelauncher.managers.tlau.TlauUser.art(this), XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
     }
 
     private String buildWelcomeMessage() {

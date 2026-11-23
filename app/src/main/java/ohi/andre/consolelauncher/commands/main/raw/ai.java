@@ -213,13 +213,14 @@ public class ai implements CommandAbstraction {
     // ---- model and key ----
 
     private static String model(Context c, String rest) {
-        if (rest.length() == 0) return say(c, "ai: modelo atual: " + AiConfig.model(c) + ". Opções: haiku, sonnet, opus");
+        if (rest.length() == 0) return say(c, AiConfig.modelList(c));
 
         String m = AiConfig.resolveModel(rest);
-        if (m == null) return say(c, "ai: modelo desconhecido. Use haiku, sonnet ou opus");
+        if (m == null) return say(c, "ai: modelo desconhecido.\n" + AiConfig.modelList(c));
 
         AiConfig.setModel(c, m);
-        return say(c, "ai: modelo = " + m);
+        return say(c, m.equals(AiConfig.defaultModel()) ? "ai: modelo = " + m + " (o padrão)"
+                : "ai: modelo = " + m + " só nesta conversa; ao encerrar volta ao " + AiConfig.defaultModel().replace("claude-", ""));
     }
 
     // "ai -memory" lists what the assistant keeps; "ai -memory -rm chave" forgets one item

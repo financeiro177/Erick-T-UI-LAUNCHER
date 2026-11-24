@@ -334,7 +334,10 @@ public class JarvisActivity extends Activity {
 
         String m;
         int mc;
-        if (s == JarvisSession.LISTENING) {
+        if (s == JarvisSession.STANDBY && JarvisAccess.instance == null) {
+            m = "microfone desligado · toque no anel · bolinha desligada (-jarvis -acesso)";
+            mc = dim;
+        } else if (s == JarvisSession.LISTENING) {
             m = "microfone ligado · toque no anel para desligar";
             mc = accent;
         } else if (busy()) {
@@ -522,6 +525,7 @@ public class JarvisActivity extends Activity {
         if (access != null) {
             access.showBubble();
         } else {
+            JarvisGuard.log(this, "bolinha: não mostrada (o serviço de acessibilidade está desligado; ligue com -jarvis -acesso)");
             s.mute();
             s.detach(screen);
         }

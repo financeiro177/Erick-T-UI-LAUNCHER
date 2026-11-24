@@ -55,6 +55,7 @@ public class JarvisAccess extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         instance = this;
+        JarvisGuard.log(this, "serviço de acessibilidade ligado");
     }
 
     @Override
@@ -327,7 +328,11 @@ public class JarvisAccess extends AccessibilityService {
             @Override
             public void run() {
                 final JarvisSession session = JarvisSession.peek();
-                if (session == null || bubble != null) return;
+                if (bubble != null) return;
+                if (session == null) {
+                    JarvisGuard.log(JarvisAccess.this, "bolinha: não mostrada (não há conversa aberta)");
+                    return;
+                }
 
                 try {
                     WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
@@ -369,8 +374,10 @@ public class JarvisAccess extends AccessibilityService {
 
                     ui = new BubbleUi();
                     session.attach(ui);
+                    JarvisGuard.log(JarvisAccess.this, "bolinha: mostrada");
                 } catch (Exception e) {
                     bubble = null;
+                    JarvisGuard.log(JarvisAccess.this, "bolinha: FALHOU ao mostrar: " + e);
                 }
             }
         });

@@ -292,6 +292,37 @@ public class JarvisSession {
         ask(text, false);
     }
 
+    /** The user wrote the question instead of speaking it (a tap on his own line of the full screen). */
+    public void typed(String text) {
+        if (closed || text == null) return;
+        text = text.trim();
+        if (text.length() == 0) return;
+
+        if (state == THINKING || state == SPEAKING) {
+            turnId++;
+            JarvisClient.cancel();
+            if (voice != null) voice.stop();
+            network = "ok";
+        } else if (state == LISTENING) {
+            turnId++;
+            stopListening();
+        }
+
+        listening = false;
+        silentRounds = 0;
+        userText = text;
+        if (ui != null) ui.onUser(text, true);
+
+        String plain = text.toLowerCase(new Locale("pt", "BR")).replaceAll("[^a-zà-ú ]", "").trim();
+        if (plain.equals("sair") || plain.equals("sair do modo jarvis") || plain.equals("sair jarvis")
+                || plain.equals("fechar jarvis") || plain.equals("encerrar jarvis")) {
+            exit();
+            return;
+        }
+
+        ask(text, false);
+    }
+
     private void heardNothing(int error) {
         if (state != LISTENING) return;
         listening = false;

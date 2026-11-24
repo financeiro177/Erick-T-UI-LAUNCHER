@@ -2,6 +2,10 @@ package ohi.andre.consolelauncher.managers.ai;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.text.InputType;
+import android.widget.EditText;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -193,6 +197,17 @@ public class JarvisActivity extends Activity {
         youText = label("", 14, dim);
         youText.setLineSpacing(px(3), 1f);
         youText.setPadding(0, px(4), 0, px(10));
+        youText.setMinHeight(px(36));
+        youText.setHint("toque aqui para escrever");
+        youText.setHintTextColor(faint);
+        View.OnClickListener write = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                askTyped();
+            }
+        };
+        youLabel.setOnClickListener(write);
+        youText.setOnClickListener(write);
         talk.addView(youText);
         jarvisLabel = label("// JARVIS", 10, dim);
         talk.addView(jarvisLabel);
@@ -288,6 +303,28 @@ public class JarvisActivity extends Activity {
         boolean granted = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
         if (granted) showNote("Toque no anel para falar.", false);
         else showNote("Sem o microfone o Jarvis não te ouve. Para liberar: Configurações > Apps > T-Lau > Permissões.", true);
+    }
+
+    /** Tap on his own line: a box to write the question instead of speaking it. */
+    private void askTyped() {
+        if (session == null) return;
+        final EditText input = new EditText(this);
+        input.setHint("escreva a pergunta");
+        input.setSingleLine(false);
+        input.setMaxLines(5);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        new AlertDialog.Builder(this)
+                .setTitle(erick ? "Erick" : "Teetsuuo")
+                .setView(input)
+                .setPositiveButton("Enviar", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        if (session != null) session.typed(input.getText().toString());
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+        input.requestFocus();
     }
 
     private boolean busy() {

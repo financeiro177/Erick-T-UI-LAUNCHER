@@ -462,8 +462,8 @@ public class JarvisVoice {
                 if (shown == 0) b.append("\n(o motor não informou vozes)");
                 p.edit().putString(LISTED, names.toString()).apply();
 
-                b.append("\nEscolher: ai -jarvis -voz [número]   Ouvir: ai -jarvis -voz teste");
-                b.append("\nAjustar: ai -jarvis -voz velocidade 0.9   ai -jarvis -voz tom 0.8   Voltar à padrão: ai -jarvis -voz padrao");
+                b.append("\nEscolher: ai -jarvis -voz [número]   Ouvir: ai -jarvis -voz -teste");
+                b.append("\nAjustar: ai -jarvis -voz -velocidade 0.9   ai -jarvis -voz -tom 0.8   Voltar à padrão: ai -jarvis -voz -padrao");
                 b.append("\nO motor (Google, Samsung, Marmalade...) é escolhido nas Configurações do Android, em texto em voz.");
                 AiClient.info(c, b.toString());
 
@@ -484,7 +484,7 @@ public class JarvisVoice {
             if (number < 1 || number > names.length()) return "jarvis: número fora da lista. Veja a lista com ai -jarvis -voz";
             String name = names.getString(number - 1);
             prefs(c).edit().putString(VOICE, name).apply();
-            return "jarvis: voz = " + name + ". Ouça com ai -jarvis -voz teste";
+            return "jarvis: voz = " + name + ". Ouça com ai -jarvis -voz -teste";
         } catch (Exception e) {
             return "jarvis: rode ai -jarvis -voz primeiro, para ver a lista.";
         }
@@ -500,9 +500,9 @@ public class JarvisVoice {
             float v = Float.parseFloat(value.replace(',', '.'));
             if (v < 0.3f || v > 3f) throw new NumberFormatException();
             prefs(c).edit().putFloat(pitch ? PITCH : RATE, v).apply();
-            return "jarvis: " + (pitch ? "tom" : "velocidade") + " = " + v + " (1 é o normal). Ouça com ai -jarvis -voz teste";
+            return "jarvis: " + (pitch ? "tom" : "velocidade") + " = " + v + " (1 é o normal). Ouça com ai -jarvis -voz -teste";
         } catch (Exception e) {
-            return "jarvis: use um número entre 0.3 e 3. Exemplo: ai -jarvis -voz " + (pitch ? "tom 0.8" : "velocidade 0.9");
+            return "jarvis: use um número entre 0.3 e 3. Exemplo: ai -jarvis -voz " + (pitch ? "-tom 0.8" : "-velocidade 0.9");
         }
     }
 

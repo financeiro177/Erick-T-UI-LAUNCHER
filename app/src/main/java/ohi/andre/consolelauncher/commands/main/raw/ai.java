@@ -137,22 +137,26 @@ public class ai implements CommandAbstraction {
                     JarvisVoice.list(c);
                     return null;
                 }
-                if (argLower.equals("teste")) {
+                // the inner options take a "-" like every option, and also work without it
+                String sub = argLower.startsWith("-") ? argLower.substring(1) : argLower;
+                String subArg = arg.startsWith("-") ? arg.substring(1) : arg;
+
+                if (sub.equals("teste")) {
                     JarvisVoice.test(c);
                     return null;
                 }
-                if (argLower.equals("padrao") || argLower.equals("padrão")) return say(c, JarvisVoice.useDefault(c));
-                if (argLower.startsWith("velocidade")) return say(c, JarvisVoice.setRate(c, arg.substring(10).trim(), false));
-                if (argLower.startsWith("tom")) return say(c, JarvisVoice.setRate(c, arg.substring(3).trim(), true));
+                if (sub.equals("padrao") || sub.equals("padrão")) return say(c, JarvisVoice.useDefault(c));
+                if (sub.startsWith("velocidade")) return say(c, JarvisVoice.setRate(c, subArg.substring(10).trim(), false));
+                if (sub.startsWith("tom")) return say(c, JarvisVoice.setRate(c, subArg.substring(3).trim(), true));
                 try {
-                    return say(c, JarvisVoice.choose(c, Integer.parseInt(arg)));
+                    return say(c, JarvisVoice.choose(c, Integer.parseInt(subArg.trim())));
                 } catch (NumberFormatException e) {
                     return say(c, "jarvis: use ai -jarvis -voz para ver a lista e ai -jarvis -voz [número] para escolher.");
                 }
             }
             case "memory":
             case "memoria": {
-                if (argLower.startsWith("-rm") || argLower.startsWith("rm ")) {
+                if (argLower.startsWith("-rm") || argLower.startsWith("rm ") || argLower.equals("rm")) {
                     String k = arg.substring(argLower.startsWith("-rm") ? 3 : 2).trim();
                     if (k.length() == 0) return say(c, "jarvis: informe a chave. Exemplo: ai -jarvis -memory -rm comida favorita");
                     return say(c, JarvisMemory.remove(c, k) ? "jarvis: esquecido: " + JarvisMemory.normalize(k) : "jarvis: não há essa chave.");

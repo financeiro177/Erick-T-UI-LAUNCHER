@@ -46,7 +46,7 @@ public class JarvisClient {
     private static final String URL = "https://api.anthropic.com/v1/messages";
     private static final String VERSION = "2023-06-01";
     private static final int MAX_TOKENS = 500;
-    private static final int MAX_STEPS = 5;
+    private static final int MAX_STEPS = 24;   // moving around an app takes one request per look and per touch
 
     private static final long INACTIVITY_MS = 30L * 60L * 1000L;
     private static final int HISTORY_MAX = 40;
@@ -90,6 +90,14 @@ public class JarvisClient {
 
     private static boolean busy;
     private static int generation;
+    private static int userTurns;
+
+    /** How many times the user has spoken to Jarvis. JarvisGuard uses it to know that a "yes" came after the question. */
+    public static int userTurns() {
+        synchronized (LOCK) {
+            return userTurns;
+        }
+    }
     private static Call current;
 
     // ---- conversation ----
@@ -162,6 +170,7 @@ public class JarvisClient {
     }
 
     private static class Turn {
+        boolean fromNotice;
         final List<AiConversation.Message> messages = new ArrayList<>();
         final StringBuilder said = new StringBuilder();
         long lastContext;
@@ -170,7 +179,8 @@ public class JarvisClient {
 
     // ---- request ----
 
-    public static void ask(Context context, String phrase, final Listener listener) {
+    /** fromNotice: the turn was started by a trigger the user answered, not by something he said. */
+    public static void ask(Context context, String phrase, boolean fromNotice, final Listener listener) {
         final Context c = context.getApplicationContext();
 
         final String key = AiConfig.key(c);
@@ -193,6 +203,7 @@ public class JarvisClient {
             }
             busy = true;
             gen = ++generation;
+            if (!fromNotice) userTurns++;
 
             if (!history.isEmpty() && System.currentTimeMillis() - lastActivity > INACTIVITY_MS) {
                 history.clear();
@@ -202,6 +213,7 @@ public class JarvisClient {
         }
 
         Turn turn = new Turn();
+        turn.fromNotice = fromNotice;
         turn.messages.add(new AiConversation.Message("user", phrase));
         send(c, key, model(), turn, listener, gen);
     }
@@ -217,6 +229,7 @@ public class JarvisClient {
         try {
             JSONArray messages = new JSONArray();
             synchronized (LOCK) {
+                forgetOldScreens(history, turn.messages);
                 for (AiConversation.Message m : history) {
                     messages.put(new JSONObject().put("role", m.role).put("content", m.content));
                 }
@@ -235,7 +248,7 @@ public class JarvisClient {
                     .put("max_tokens", MAX_TOKENS)
                     .put("stream", true)
                     .put("system", system)
-                    .put("tools", JarvisTools.definitions())
+                    .put("tools", JarvisTools.definitions(!turn.fromNotice))
                     .put("messages", messages)
                     .toString();
         } catch (Exception e) {
@@ -437,6 +450,35 @@ public class JarvisClient {
         readMood(c, said);
         listener.onDone(said);
         return false;
+    }
+
+    /**
+     * A reading of the screen is long and gets old at the next touch. Only the two latest stay whole;
+     * the older ones are cut down to a line, so that a long task does not resend every screen it went through.
+     */
+    private static void forgetOldScreens(List<AiConversation.Message> a, List<AiConversation.Message> b) {
+        int kept = 0;
+        for (int pass = 0; pass < 2; pass++) {
+            List<AiConversation.Message> list = pass == 0 ? b : a;
+            for (int i = list.size() - 1; i >= 0; i--) {
+                Object content = list.get(i).content;
+                if (!(content instanceof JSONArray)) continue;
+                JSONArray blocks = (JSONArray) content;
+                for (int k = blocks.length() - 1; k >= 0; k--) {
+                    JSONObject block = blocks.optJSONObject(k);
+                    if (block == null || !"tool_result".equals(block.optString("type"))) continue;
+                    String text = block.optString("content");
+                    if (!text.startsWith("TELA") || text.length() < 200) continue;
+                    if (kept < 2) {
+                        kept++;
+                        continue;
+                    }
+                    try {
+                        block.put("content", "TELA (leitura antiga, descartada; use ver_tela para ler a atual)");
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
     }
 
     private static void commit(Turn turn) {

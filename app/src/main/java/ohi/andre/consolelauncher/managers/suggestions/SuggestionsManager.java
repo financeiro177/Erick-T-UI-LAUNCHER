@@ -866,9 +866,9 @@ public class SuggestionsManager {
     private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key", "-jarvis"};
     private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory", "-jarvis"};
 
-    private static final String[] JARVIS_OPTIONS = {"-voz", "-memory", "-humor", "-model", "-persona", "-fim"};
+    private static final String[] JARVIS_OPTIONS = {"-voz", "-memory", "-humor", "-model", "-persona", "-acesso", "-bloqueio", "-gatilhos", "-quieto", "-log", "-fim"};
     private static final String[] JARVIS_VOICE_OPTIONS = {"-teste", "-velocidade", "-tom", "-padrao"};
-    private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao"};
+    private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao", "-acesso", "-bloqueio", "-gatilhos", "-log"};
 
     private static final String[] LEMBRETE_OPTIONS = {"-ls", "-rm", "-teste"};
     private static final String[] LEMBRETE_RUN_ON_CLICK = {"-ls", "-teste"};

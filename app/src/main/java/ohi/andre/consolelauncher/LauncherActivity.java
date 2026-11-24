@@ -464,6 +464,13 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         // reminders that came due while the app was away are shown as a card
         ohi.andre.consolelauncher.managers.reminder.ReminderCard.attach(this);
 
+        // what makes Jarvis want to talk, and the band "Jarvis quer falar com você"
+        try {
+            ohi.andre.consolelauncher.managers.ai.JarvisTriggers.watch(this);
+            ohi.andre.consolelauncher.managers.ai.JarvisNoticeCard.attach(this);
+            ohi.andre.consolelauncher.managers.ai.JarvisTriggers.onLauncherResume(this);
+        } catch (Exception ignored) {}
+
         // after an install or update, the installer files left in Downloads are removed
         ohi.andre.consolelauncher.managers.tlau.TlauCleanup.runIfUpdated(this);
     }
@@ -480,6 +487,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         super.onPause();
 
         ohi.andre.consolelauncher.managers.reminder.ReminderCard.detach(this);
+        ohi.andre.consolelauncher.managers.ai.JarvisNoticeCard.detach(this);
 
         if (ui != null && main != null) {
             ui.pause();

@@ -43,6 +43,10 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- ai -jarvis: asked for only when that screen opens; the microphone is used only while it is open -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- the notification that lets the mini Jarvis hear over other apps (only after a tap on the bubble) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Jarvis: alarm and timer in the phone's clock -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"
         tools:ignore="MockLocation,ProtectedPermissions" />
 
@@ -168,6 +172,29 @@
         <receiver
             android:name=".managers.reminder.ReminderReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".managers.ai.JarvisReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".managers.ai.JarvisMicService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Jarvis reading and touching the screen. Off until the user turns it on by hand in the Android settings. -->
+        <service
+            android:name=".managers.ai.JarvisAccess"
+            android:exported="true"
+            android:label="Jarvis (T-Lau)"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/jarvis_access" />
+        </service>
 
         <receiver
             android:name=".managers.reminder.ReminderBootReceiver"

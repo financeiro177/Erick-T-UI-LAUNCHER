@@ -107,7 +107,7 @@ public class ai implements CommandAbstraction {
 
     private static final String FORGOTTEN_DASH = " custo fim novo limite ciclo aviso model memory memoria key ";
 
-    private static final String JARVIS_OPTIONS = " voz memory memoria humor model modelo persona fim ";
+    private static final String JARVIS_OPTIONS = " voz memory memoria humor model modelo persona fim acesso bloqueio gatilhos quieto log ";
 
     // ---- jarvis: the voice assistant, a full screen of its own ----
 
@@ -219,8 +219,70 @@ public class ai implements CommandAbstraction {
             case "fim":
                 JarvisClient.reset();
                 return say(c, "jarvis: conversa encerrada. A memória dele continua.");
+            case "acesso": {
+                boolean on = ohi.andre.consolelauncher.managers.ai.JarvisAccess.on();
+                String status = "jarvis: enxergar e tocar na tela está " + (on ? "LIGADO." : "DESLIGADO.")
+                        + "\nÉ o serviço de acessibilidade \"Jarvis (T-Lau)\". Com ele o Jarvis lê a tela, toca, digita e rola, "
+                        + "e te acompanha como uma bolinha por cima dos apps."
+                        + "\nTravas: não entra em apps protegidos (-jarvis -bloqueio), nunca lê nem digita senha, "
+                        + "pede confirmação por voz antes de enviar, pagar, apagar ou instalar, e registra tudo (-jarvis -log).";
+                if (argLower.equals("-status") || argLower.equals("status")) return say(c, status);
+                try {
+                    ohi.andre.consolelauncher.managers.ai.JarvisAccess.openSettings(c);
+                } catch (Exception e) {
+                    return say(c, status + "\n(não consegui abrir a tela; vá em Configurações > Acessibilidade)");
+                }
+                return say(c, status + "\n\nAbrindo a tela de Acessibilidade. " + (on ? "Para desligar, " : "Para ligar, ")
+                        + "toque em \"Apps instalados\" (ou \"Serviços baixados\") > Jarvis (T-Lau)."
+                        + (on ? "" : "\nSe o Android disser \"configuração restrita\": Configurações > Apps > T-Lau > três pontinhos "
+                        + "no canto > Permitir configurações restritas, e volte aqui."));
+            }
+            case "bloqueio": {
+                if (argLower.startsWith("-rm") || argLower.startsWith("rm ")) {
+                    return say(c, ohi.andre.consolelauncher.managers.ai.JarvisGuard.unblock(c, arg.substring(argLower.startsWith("-rm") ? 3 : 2)));
+                }
+                if (argLower.equals("-padrao") || argLower.equals("padrao")) return say(c, ohi.andre.consolelauncher.managers.ai.JarvisGuard.resetBlocked(c));
+                if (arg.length() > 0) return say(c, ohi.andre.consolelauncher.managers.ai.JarvisGuard.block(c, arg.replaceFirst("^-", "")));
+
+                StringBuilder b = new StringBuilder("== jarvis: apps protegidos ==\nEle não lê nem toca em apps cujo pacote contém:\n");
+                for (String piece : ohi.andre.consolelauncher.managers.ai.JarvisGuard.blocked(c)) b.append(piece).append("  ");
+                b.append("\n\nAcrescentar: -jarvis -bloqueio [pedaço do pacote]   Tirar: -jarvis -bloqueio -rm [pedaço]   Padrão: -jarvis -bloqueio -padrao");
+                b.append("\n(o nome do pacote de um app aparece em Configurações > Apps, ou pergunte ao próprio Jarvis com o app aberto)");
+                return say(c, b.toString());
+            }
+            case "gatilhos": {
+                if (argLower.startsWith("-rm") || argLower.startsWith("rm ")) {
+                    try {
+                        int id = Integer.parseInt(arg.substring(argLower.startsWith("-rm") ? 3 : 2).trim());
+                        return say(c, ohi.andre.consolelauncher.managers.ai.JarvisTriggers.remove(c, id) ? "jarvis: gatilho " + id + " apagado." : "jarvis: não existe esse gatilho.");
+                    } catch (NumberFormatException e) {
+                        return say(c, "jarvis: informe o número. Exemplo: -jarvis -gatilhos -rm 2");
+                    }
+                }
+                if (argLower.startsWith("-off") || argLower.startsWith("off ")) {
+                    return say(c, ohi.andre.consolelauncher.managers.ai.JarvisTriggers.setKind(c, arg.substring(argLower.startsWith("-off") ? 4 : 3), false));
+                }
+                if (argLower.startsWith("-on") || argLower.startsWith("on ")) {
+                    return say(c, ohi.andre.consolelauncher.managers.ai.JarvisTriggers.setKind(c, arg.substring(argLower.startsWith("-on") ? 3 : 2), true));
+                }
+                return say(c, ohi.andre.consolelauncher.managers.ai.JarvisTriggers.list(c));
+            }
+            case "quieto": {
+                int minutes = 60;
+                if (arg.length() > 0) {
+                    try {
+                        minutes = Integer.parseInt(arg.trim());
+                    } catch (NumberFormatException e) {
+                        return say(c, "jarvis: informe os minutos. Exemplo: -jarvis -quieto 120 (0 volta ao normal)");
+                    }
+                }
+                return say(c, "jarvis: " + ohi.andre.consolelauncher.managers.ai.JarvisTriggers.setQuiet(c, minutes) + ".");
+            }
+            case "log":
+                return say(c, "== jarvis: o que ele fez na tela ==\n" + ohi.andre.consolelauncher.managers.ai.JarvisGuard.tail(c, 40));
             default:
-                return say(c, "jarvis: opção desconhecida. Use: ai -jarvis (abre), -voz, -memory, -humor, -model, -persona, -fim");
+                return say(c, "jarvis: opção desconhecida. Use: -jarvis (abre), -voz, -memory, -humor, -model, -persona, -acesso, "
+                        + "-bloqueio, -gatilhos, -quieto, -log, -fim");
         }
     }
 

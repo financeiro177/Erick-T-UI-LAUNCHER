@@ -47,7 +47,6 @@ public class JarvisActivity extends Activity {
 
     private static final int ASK_MIC = 71;
 
-    private static final int BOOT = 0, LISTENING = 1, THINKING = 2, SPEAKING = 3, STANDBY = 4;
     // The microphone is never on by itself: the screen opens muted and a tap on the rings turns it on.
     // After an answer he listens once more, so a conversation can go on; one silence and it is muted again.
     private static final int MAX_SILENT_ROUNDS = 1;
@@ -66,28 +65,17 @@ public class JarvisActivity extends Activity {
     private TextView[] cellLabel = new TextView[4], cellValue = new TextView[4], cellNote = new TextView[4];
     private ScrollView scroll;
 
-    private SpeechRecognizer recognizer;
-    private JarvisVoice voice;
-
-    private int state = BOOT;
-    private boolean micGranted, voiceAnswered, voiceOk, resumed, listening;
-    private boolean quit, listenOnResume;
+    private JarvisSession session;
+    private final ScreenUi screen = new ScreenUi();
+    private int shown = JarvisSession.BOOT;
+    private boolean resumed, quit;
 
     /**
-     * True while the Jarvis screen is "on": from the moment it opens until the user leaves with the button or by
+     * True while Jarvis is "on": from the moment his screen opens until the user leaves with the button or by
      * asking. While it is true the launcher sends the user back here, so this screen works as the home screen.
      * It lives only in memory: if the app process dies, the terminal is the home screen again.
      */
     public static volatile boolean active;
-
-    /** Set by the tool Jarvis uses to close his own screen; obeyed when he finishes talking. */
-    public static volatile boolean exitRequested;
-    private int silentRounds, turnId;
-    private String network = "ok";
-
-    private final StringBuilder answer = new StringBuilder();
-    private final StringBuilder pending = new StringBuilder();
-    private boolean firstPiece;
 
     public static void open(Context c) {
         Intent i = new Intent(c, JarvisActivity.class);
@@ -135,8 +123,6 @@ public class JarvisActivity extends Activity {
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
-        active = true;
-        exitRequested = false;
 
         erick = TlauUser.ERICK.equals(TlauUser.current(this));
         accent = erick ? 0xFF4FD8FF : 0xFF3DFF8F;
@@ -184,7 +170,7 @@ public class JarvisActivity extends Activity {
         hud.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                tapped();
+                if (session != null) session.tap();
             }
         });
         LinearLayout.LayoutParams lh = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.15f);
@@ -283,42 +269,15 @@ public class JarvisActivity extends Activity {
 
         setContentView(root);
 
-        setState(BOOT);
-        refreshData();
+        active = true;
+        session = JarvisSession.get(this);
+        showState(JarvisSession.BOOT);
 
         // being called between midnight and five is not something he takes well
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (hour < 5 && !JarvisClient.isOpen()) JarvisMood.nudge(this, 15, "foi acordado de madrugada");
 
-        if (!AiConfig.hasKey(this)) {
-            note("Sem chave da IA. Saia e use no terminal: ai -key", AMBER);
-            setState(STANDBY);
-            return;
-        }
-
-        voice = new JarvisVoice(this, new JarvisVoice.Listener() {
-            @Override
-            public void onReady(boolean ok) {
-                voiceAnswered = true;
-                voiceOk = ok;
-                if (!ok) note("O motor de voz do Android não respondeu; vou responder só por escrito.", AMBER);
-                maybeStart();
-            }
-
-            @Override
-            public void onSpeakingStart() {
-                if (state == THINKING) setState(SPEAKING);
-            }
-
-            @Override
-            public void onAllDone() {
-                if (state == SPEAKING || state == THINKING) listen();
-            }
-        });
-
-        micGranted = Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
-        if (!micGranted) {
-            note("O Android vai perguntar se o T-Lau pode usar o microfone. Ele só fica ligado dentro deste modo.", dim);
+        if (!session.hasMic() && Build.VERSION.SDK_INT >= 23) {
             requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, ASK_MIC);
         }
     }
@@ -326,52 +285,41 @@ public class JarvisActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
         if (code != ASK_MIC) return;
-        micGranted = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-        if (micGranted) {
-            maybeStart();
-        } else {
-            note("Sem o microfone o modo Jarvis não funciona. Para liberar: Configurações > Apps > T-Lau > Permissões.", AMBER);
-            setState(STANDBY);
-        }
+        boolean granted = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+        if (granted) showNote("Toque no anel para falar.", false);
+        else showNote("Sem o microfone o Jarvis não te ouve. Para liberar: Configurações > Apps > T-Lau > Permissões.", true);
     }
 
-    private void maybeStart() {
-        if (!resumed || !micGranted || !voiceAnswered || state != BOOT) return;
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            note("Este celular está sem reconhecimento de fala (o app Google ou o serviço de voz está desativado).", AMBER);
-            setState(STANDBY);
-            return;
-        }
-        note("Toque no anel para falar.", dim);
-        setState(STANDBY);
+    private boolean busy() {
+        return shown == JarvisSession.THINKING || shown == JarvisSession.SPEAKING;
     }
 
     /** Small grey or amber line in the place of the answer (status, errors). */
-    private void note(String s, int color) {
-        jarvisText.setTextColor(color);
-        jarvisText.setTextSize(TypedValue.COMPLEX_UNIT_SP, color == INK ? 17 : 13);
+    private void showNote(String s, boolean warn) {
+        jarvisText.setTextColor(warn ? AMBER : dim);
+        jarvisText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         jarvisText.setText(s);
     }
 
-    private void setState(int s) {
-        state = s;
+    private void showState(int s) {
+        shown = s;
         int c;
         switch (s) {
-            case LISTENING:
+            case JarvisSession.LISTENING:
                 c = accent;
                 hud.setState("OUVINDO", c, 1.2f, false, 1f, JarvisHudView.BARS_LEVEL);
                 break;
-            case THINKING:
+            case JarvisSession.THINKING:
                 c = AMBER;
                 hud.setState("PENSANDO", c, 4f, true, 1f, JarvisHudView.BARS_FLAT);
                 break;
-            case SPEAKING:
+            case JarvisSession.SPEAKING:
                 c = WHITE;
                 hud.setState("RESPONDENDO", c, 2f, false, 1f, JarvisHudView.BARS_TALK);
                 break;
-            case STANDBY:
+            case JarvisSession.STANDBY:
                 c = dim;
-                hud.setState("EM ESPERA", c, 0.4f, false, 0.15f, JarvisHudView.BARS_FLAT);
+                hud.setState("MUDO", c, 0.4f, false, 0.15f, JarvisHudView.BARS_FLAT);
                 break;
             default:
                 c = accent;
@@ -381,32 +329,79 @@ public class JarvisActivity extends Activity {
         backdrop.invalidate();
 
         // the screen stays awake only while a conversation is going on; at rest it may turn off like any home screen
-        if (s == LISTENING || s == THINKING || s == SPEAKING) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (s == JarvisSession.LISTENING || busy()) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        showMic();
+        String m;
+        int mc;
+        if (s == JarvisSession.LISTENING) {
+            m = "microfone ligado · toque no anel para desligar";
+            mc = accent;
+        } else if (busy()) {
+            m = "microfone desligado · toque no anel para interromper";
+            mc = AMBER;
+        } else {
+            m = "microfone desligado · toque no anel para falar";
+            mc = dim;
+        }
+        micText.setText(m);
+        micText.setTextColor(mc);
+        micDot.setTextColor(mc);
         refreshData();
     }
 
-    private void showMic() {
-        String s;
-        int c;
-        if (listening) {
-            s = "microfone ligado";
-            c = accent;
-        } else if (state == THINKING || state == SPEAKING) {
-            s = "microfone em pausa · toque no anel para interromper";
-            c = AMBER;
-        } else if (state == STANDBY) {
-            s = "microfone desligado · toque no anel para falar";
-            c = dim;
-        } else {
-            s = "microfone desligado";
-            c = dim;
+    /** How the conversation shows itself on the full screen. */
+    class ScreenUi implements JarvisSession.Ui {
+        @Override
+        public void onState(int state) {
+            showState(state);
         }
-        micText.setText(s);
-        micText.setTextColor(c);
-        micDot.setTextColor(c);
+
+        @Override
+        public void onUser(String text, boolean complete) {
+            youText.setText(text);
+            youText.setTextColor(complete ? dim : INK);
+        }
+
+        @Override
+        public void onAnswer(String text) {
+            jarvisText.setTextColor(INK);
+            jarvisText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            jarvisText.setText(text);
+            scroll.post(new Runnable() {
+                @Override
+                public void run() {
+                    scroll.fullScroll(View.FOCUS_DOWN);
+                }
+            });
+        }
+
+        @Override
+        public void onNote(String text, boolean warn) {
+            showNote(text, warn);
+        }
+
+        @Override
+        public void onLevel(float level) {
+            hud.setLevel(level);
+        }
+
+        @Override
+        public void onNeedMic() {
+            if (Build.VERSION.SDK_INT >= 23) requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, ASK_MIC);
+        }
+
+        @Override
+        public void onData() {
+            refreshData();
+        }
+
+        @Override
+        public void onExit() {
+            quit = true;
+            active = false;
+            finish();
+        }
     }
 
     private void refreshData() {
@@ -449,356 +444,22 @@ public class JarvisActivity extends Activity {
         cellNote[3].setText(JarvisMood.label(mood));
 
         hud.setReadout(0, "MODELO", JarvisClient.model().replace("claude-", "").replaceAll("-[0-9].*$", ""), 0);
+        String network = session == null ? "ok" : session.network();
         hud.setReadout(1, "REDE", network, "ok".equals(network) ? 0 : AMBER);
         long tokens = JarvisClient.contextTokens();
         hud.setReadout(2, "CONVERSA", tokens <= 0 ? "nova" : tokens < 1000 ? tokens + " tk" : String.format(Locale.US, "%.1fk tk", tokens / 1000.0), 0);
-        hud.setReadout(3, "MIC", listening ? "on" : state == THINKING || state == SPEAKING ? "pausa" : "off",
-                listening ? accent : state == THINKING || state == SPEAKING ? AMBER : dim);
+        boolean mic = session != null && session.micOn();
+        hud.setReadout(3, "MIC", mic ? "on" : busy() ? "pausa" : "off", mic ? accent : busy() ? AMBER : dim);
     }
 
-    // ---- listening ----
+    // ---- life cycle ----
 
-    private void ensureRecognizer() {
-        if (recognizer != null) return;
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        recognizer.setRecognitionListener(new RecognitionListener() {
-            @Override
-            public void onReadyForSpeech(Bundle params) {}
-
-            @Override
-            public void onBeginningOfSpeech() {}
-
-            @Override
-            public void onRmsChanged(float rmsdB) {
-                hud.setLevel((rmsdB + 2f) / 12f);
-            }
-
-            @Override
-            public void onBufferReceived(byte[] buffer) {}
-
-            @Override
-            public void onEndOfSpeech() {
-                hud.setLevel(0);
-            }
-
-            @Override
-            public void onError(int error) {
-                heardNothing(error);
-            }
-
-            @Override
-            public void onResults(Bundle results) {
-                heard(first(results), true);
-            }
-
-            @Override
-            public void onPartialResults(Bundle partial) {
-                heard(first(partial), false);
-            }
-
-            @Override
-            public void onEvent(int eventType, Bundle params) {}
-        });
-    }
-
-    private static String first(Bundle b) {
-        if (b == null) return "";
-        ArrayList<String> list = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        return list == null || list.isEmpty() || list.get(0) == null ? "" : list.get(0).trim();
-    }
-
-    private void listen() {
-        if (isFinishing()) return;
-        if (exitRequested) {
-            leave();
-            return;
-        }
-        if (!resumed) {
-            // the screen is not in front (an app was opened, or the phone was locked): listen again when it comes back
-            listenOnResume = true;
-            setState(STANDBY);
-            return;
-        }
-        if (!micGranted) return;
-
-        try {
-            ensureRecognizer();
-            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR");
-            i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
-            i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
-            i.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
-            recognizer.startListening(i);
-            listening = true;
-            setState(LISTENING);
-        } catch (Exception e) {
-            listening = false;
-            note("Não foi possível ligar o reconhecimento de fala.", AMBER);
-            setState(STANDBY);
-        }
-    }
-
-    private void stopListening() {
-        listening = false;
-        hud.setLevel(0);
-        if (recognizer == null) return;
-        try {
-            recognizer.cancel();
-        } catch (Exception ignored) {}
-    }
-
-    private void heard(String text, boolean complete) {
-        if (state != LISTENING || text.length() == 0) {
-            if (complete && state == LISTENING) heardNothing(SpeechRecognizer.ERROR_NO_MATCH);
-            return;
-        }
-
-        youText.setText(text);
-        youText.setTextColor(complete ? dim : INK);
-        if (!complete) return;
-
-        listening = false;
-        silentRounds = 0;
-
-        String plain = text.toLowerCase(new Locale("pt", "BR")).replaceAll("[^a-zà-ú ]", "").trim();
-        if (plain.equals("sair") || plain.equals("sair do modo jarvis") || plain.equals("sair jarvis")
-                || plain.equals("fechar jarvis") || plain.equals("encerrar jarvis")) {
-            leave();
-            return;
-        }
-
-        ask(text);
-    }
-
-    private void heardNothing(int error) {
-        if (state != LISTENING) return;
-        listening = false;
-        hud.setLevel(0);
-
-        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-            silentRounds++;
-            if (silentRounds >= MAX_SILENT_ROUNDS) {
-                silentRounds = 0;
-                setState(STANDBY);
-            } else {
-                relisten(350);
-            }
-        } else if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) {
-            silentRounds++;
-            if (silentRounds >= MAX_SILENT_ROUNDS) {
-                silentRounds = 0;
-                setState(STANDBY);
-            } else {
-                try {
-                    recognizer.cancel();
-                } catch (Exception ignored) {}
-                relisten(700);
-            }
-        } else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
-            note("O Android negou o microfone ao reconhecimento de fala.", AMBER);
-            setState(STANDBY);
-        } else if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT
-                || error == SpeechRecognizer.ERROR_SERVER) {
-            note("O reconhecimento de fala ficou sem rede. Toque no anel para tentar de novo.", AMBER);
-            setState(STANDBY);
-        } else {
-            note("O reconhecimento de fala falhou (código " + error + "). Toque no anel para tentar de novo.", AMBER);
-            setState(STANDBY);
-        }
-    }
-
-    private void relisten(long delay) {
-        showMic();
-        final int id = turnId;
-        main.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (id == turnId && state == LISTENING && !listening) listen();
-            }
-        }, delay);
-    }
-
-    /** A tap on the rings: interrupts the answer, wakes the microphone up, or puts it to rest. */
-    private void tapped() {
-        if (state == THINKING || state == SPEAKING) {
-            turnId++;
-            JarvisClient.cancel();
-            if (voice != null) voice.stop();
-            listen();
-        } else if (state == STANDBY) {
-            if (!AiConfig.hasKey(this)) return;
-            if (!micGranted) {
-                if (Build.VERSION.SDK_INT >= 23) requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, ASK_MIC);
-                return;
-            }
-            note("", INK);
-            silentRounds = 0;
-            listen();
-        } else if (state == LISTENING) {
-            turnId++;
-            stopListening();
-            setState(STANDBY);
-        }
-    }
-
-    // ---- one turn ----
-
-    private void ask(String phrase) {
-        final int id = ++turnId;
-
-        answer.setLength(0);
-        pending.setLength(0);
-        firstPiece = true;
-        note("", INK);
-        network = "enviando";
-        setState(THINKING);
-        if (voice != null) voice.begin();
-
-        JarvisClient.ask(this, phrase, new JarvisClient.Listener() {
-            @Override
-            public void onText(final String delta) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (id == turnId) more(delta);
-                    }
-                });
-            }
-
-            @Override
-            public void onTool(final String name) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (id != turnId) return;
-                        if (answer.length() == 0) note("> " + name, AMBER);
-                        refreshData();
-                    }
-                });
-            }
-
-            @Override
-            public void onDone(final String full) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (id == turnId) done();
-                    }
-                });
-            }
-
-            @Override
-            public void onError(final String message) {
-                main.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (id == turnId) failed(message);
-                    }
-                });
-            }
-        });
-    }
-
-    private void more(String delta) {
-        if (answer.length() == 0) {
-            jarvisText.setTextColor(INK);
-            jarvisText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-            network = "recebendo";
-        }
-        answer.append(delta);
-        jarvisText.setText(clean(answer.toString()));
-        scroll.post(new Runnable() {
-            @Override
-            public void run() {
-                scroll.fullScroll(View.FOCUS_DOWN);
-            }
-        });
-
-        pending.append(delta);
-        cut(false);
-    }
-
-    private static String clean(String s) {
-        return JarvisClient.withoutMoodMark(s).replaceAll("[*_#`]+", "").replaceAll("[ \\t]+", " ").trim();
-    }
-
-    /**
-     * Hands complete sentences of the answer to the voice. A piece ends only at a full stop, question or exclamation
-     * mark: cutting at commas made the voice stop in the middle of a sentence while the next piece was being prepared.
-     */
-    private void cut(boolean everything) {
-        while (true) {
-            int end = -1;
-            for (int i = 0; i < pending.length(); i++) {
-                char ch = pending.charAt(i);
-                boolean strong = ch == '.' || ch == '!' || ch == '?' || ch == '\n' || ch == '…';
-                if (!strong) continue;
-
-                // the mark must be followed by a space: "3.5" or "..." in the middle are not an end
-                if (i + 1 >= pending.length()) {
-                    if (ch == '\n') end = i;
-                    continue;
-                }
-                char after = pending.charAt(i + 1);
-                if (ch == '\n' || after == ' ' || after == '\n') {
-                    end = i;
-                    break;
-                }
-            }
-
-            if (end < 0) break;
-
-            String piece = clean(pending.substring(0, end + 1));
-            pending.delete(0, end + 1);
-            say(piece);
-        }
-
-        if (everything) {
-            String rest = clean(pending.toString());
-            pending.setLength(0);
-            say(rest);
-        }
-    }
-
-    private void say(String piece) {
-        if (voice == null || !voiceOk) return;
-        if (piece.replaceAll("[^\\p{L}\\p{N}]", "").length() == 0) return;
-        firstPiece = false;
-        voice.speak(piece);
-    }
-
-    private void done() {
-        network = "ok";
-        cut(true);
-        refreshData();
-
-        if (answer.toString().trim().length() == 0) note("(sem resposta)", dim);
-
-        if (voice != null && voiceOk && voice.isBusy()) {
-            voice.end();   // onAllDone turns the microphone back on
-        } else {
-            listen();
-        }
-    }
-
-    private void failed(String message) {
-        network = "erro";
-        if (voice != null) voice.stop();
-        if (answer.length() == 0) {
-            note("jarvis: " + message + ". Toque no anel para falar de novo.", AMBER);
-        } else {
-            jarvisText.setText(clean(answer.toString()) + "\n\n[" + message + "]");
-        }
-        setState(STANDBY);
-        network = "ok";
-    }
-
-    /** The user asked to leave (button, back key or the word "sair"): silence at once. */
+    /** The user asked to leave by the button: silence at once, and the terminal is the home screen again. */
     private void leave() {
-        active = false;
-        exitRequested = false;
         quit = true;
+        active = false;
+        JarvisSession s = JarvisSession.peek();
+        if (s != null) s.close();
         finish();
     }
 
@@ -807,8 +468,6 @@ public class JarvisActivity extends Activity {
     public void onBackPressed() {
         micText.setText("para sair: toque em [ SAIR ] ou peça a ele");
     }
-
-    // ---- life cycle ----
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -823,10 +482,21 @@ public class JarvisActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        active = true;
         main.postDelayed(tick, 15000);
-        // coming back to the screen never turns the microphone on: that takes a tap
-        listenOnResume = false;
-        if (state == BOOT) maybeStart();
+
+        // back on the full screen: the bubble, if it was out, comes home
+        session = JarvisSession.get(this);
+        JarvisAccess access = JarvisAccess.instance;
+        if (access != null) {
+            access.hideBubble();
+            // lets the microphone work in the bubble later; it must start while this screen is in front
+            if (session.hasMic() && !JarvisMicService.running) JarvisMicService.start(this);
+        }
+        session.attach(screen);
+
+        // he was the one who called: he speaks first
+        if (session.state() == JarvisSession.STANDBY && JarvisTriggers.hasPending(this)) session.answerNotice();
     }
 
     @Override
@@ -835,41 +505,34 @@ public class JarvisActivity extends Activity {
         resumed = false;
         main.removeCallbacks(tick);
 
-        // leaving the screen turns the microphone off, whatever the reason
-        boolean was = state == LISTENING;
-        stopListening();
-        if (was) {
-            turnId++;
-            listenOnResume = true;
-            setState(STANDBY);
-        }
+        // without the bubble, leaving the screen turns the microphone off
+        if (JarvisAccess.instance == null && session != null) session.mute();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        // nothing closes this screen but the user: it stays behind whatever was opened, like a home screen
+        if (quit || isFinishing()) return;
+
+        // nothing closes Jarvis but the user. With the accessibility service on, he follows as a bubble over whatever
+        // was opened; without it, the conversation waits here, with the microphone off.
+        JarvisSession s = JarvisSession.peek();
+        if (s == null) return;
+        JarvisAccess access = JarvisAccess.instance;
+        if (access != null) {
+            access.showBubble();
+        } else {
+            s.mute();
+            s.detach(screen);
+        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         main.removeCallbacksAndMessages(null);
-        JarvisClient.cancel();
-
-        if (recognizer != null) {
-            try {
-                recognizer.cancel();
-                recognizer.destroy();
-            } catch (Exception ignored) {}
-            recognizer = null;
-        }
-
-        if (voice != null) {
-            if (quit) voice.shutdown();
-            else voice.shutdownWhenDone();
-        }
-        voice = null;
+        JarvisSession s = JarvisSession.peek();
+        if (s != null) s.detach(screen);
     }
 
     /** Grid and corner brackets behind everything. */

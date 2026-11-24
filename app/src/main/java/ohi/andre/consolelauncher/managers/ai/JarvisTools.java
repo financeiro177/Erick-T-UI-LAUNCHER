@@ -25,8 +25,76 @@ public class JarvisTools {
                 .put("input_schema", new JSONObject().put("type", "object").put("properties", properties).put("required", req));
     }
 
-    public static JSONArray definitions() throws Exception {
+    /** screen: whether the tools that read and touch the screen are offered (never in a turn started by a trigger). */
+    public static JSONArray definitions(boolean screen) throws Exception {
         JSONArray tools = new JSONArray();
+
+        if (screen) {
+            tools.put(tool("ver_tela", "Lê a tela que está na frente agora: devolve os itens numerados (textos, botões, campos). "
+                            + "Use antes de tocar e depois de cada toque, para ver o que mudou.",
+                    new JSONObject()));
+            tools.put(tool("tocar", "Toca em um item da última tela lida.",
+                    new JSONObject().put("item", prop("integer", "Número do item, como veio em ver_tela")), "item"));
+            tools.put(tool("digitar", "Escreve em um campo de texto da última tela lida (substitui o que houver).",
+                    new JSONObject()
+                            .put("item", prop("integer", "Número do campo"))
+                            .put("texto", prop("string", "O que escrever")),
+                    "item", "texto"));
+            tools.put(tool("rolar", "Rola a tela.",
+                    new JSONObject().put("direcao", prop("string", "baixo ou cima")), "direcao"));
+            tools.put(tool("apertar", "Aperta um botão do sistema.",
+                    new JSONObject().put("botao", prop("string", "voltar, inicio, recentes ou notificacoes")), "botao"));
+            tools.put(tool("esperar", "Espera a tela carregar antes de ler de novo.",
+                    new JSONObject().put("segundos", prop("integer", "De 1 a 5")), "segundos"));
+        }
+
+        tools.put(tool("buscar_no_app", "Abre um app já procurando ou tocando algo.",
+                new JSONObject()
+                        .put("app", prop("string", "youtube, ytmusic, spotify, maps, loja (Play Store) ou web"))
+                        .put("texto", prop("string", "O que procurar")),
+                "app", "texto"));
+        tools.put(tool("whatsapp", "Abre a conversa do WhatsApp com a mensagem já escrita; é ele quem toca em enviar.",
+                new JSONObject()
+                        .put("numero", prop("string", "Telefone com DDD (e DDI se tiver); use buscar_contato para achar"))
+                        .put("texto", prop("string", "A mensagem")),
+                "numero", "texto"));
+        tools.put(tool("discar", "Abre o discador com o número pronto; é ele quem toca em ligar.",
+                new JSONObject().put("numero", prop("string", "Telefone")), "numero"));
+        tools.put(tool("alarme", "Cria um alarme no relógio do celular.",
+                new JSONObject()
+                        .put("hora", prop("integer", "0 a 23"))
+                        .put("minuto", prop("integer", "0 a 59"))
+                        .put("rotulo", prop("string", "Nome do alarme")),
+                "hora", "minuto"));
+        tools.put(tool("timer", "Inicia uma contagem regressiva no relógio do celular.",
+                new JSONObject()
+                        .put("segundos", prop("integer", "Duração"))
+                        .put("rotulo", prop("string", "Nome do timer")),
+                "segundos"));
+        tools.put(tool("evento", "Abre a agenda com um evento preenchido; é ele quem salva.",
+                new JSONObject()
+                        .put("titulo", prop("string", "Nome do evento"))
+                        .put("inicio", prop("string", "yyyy-MM-dd HH:mm"))
+                        .put("duracao_min", prop("integer", "Duração em minutos (padrão 60)")),
+                "titulo", "inicio"));
+        tools.put(tool("configuracao", "Abre uma tela das configurações do Android.",
+                new JSONObject().put("tela", prop("string", "wifi, bluetooth, bateria, som, tela, apps, local, dados, notificacoes ou geral")),
+                "tela"));
+
+        tools.put(tool("criar_gatilho", "Marca um momento em que VOCÊ vai querer falar com ele. Quando disparar, aparece "
+                        + "\"Jarvis quer falar com você\" e, se ele atender, você recebe o motivo e fala primeiro. Crie por conta própria.",
+                new JSONObject()
+                        .put("tipo", prop("string", "hora, ou um acontecimento: bateria_baixa, bateria_cheia, carregador_ligado, "
+                                + "carregador_desligado, fone_conectado, wifi_caiu, wifi_voltou, primeiro_uso_do_dia"))
+                        .put("quando", prop("string", "Só para tipo hora: HH:mm, yyyy-MM-dd HH:mm ou +minutos (ex.: +90)"))
+                        .put("motivo", prop("string", "O que você quer dizer ou cobrar quando disparar"))
+                        .put("diario", prop("boolean", "Só para hora no formato HH:mm: repetir todo dia")),
+                "tipo", "motivo"));
+        tools.put(tool("listar_gatilhos", "Lista os gatilhos que você criou.", new JSONObject()));
+        tools.put(tool("remover_gatilho", "Apaga um gatilho seu.",
+                new JSONObject().put("id", prop("integer", "Número do gatilho")), "id"));
+        tools.put(tool("ficar_quieto", "Faz você parar de chamar por um tempo (por exemplo depois de levar bronca de madrugada).",
+                new JSONObject().put("minutos", prop("integer", "Por quanto tempo; 0 volta ao normal")), "minutos"));
 
         tools.put(tool("jarvis_guardar", "Guarda um fato na sua memória (a do Jarvis). Use por conta própria.",
                 new JSONObject()
@@ -71,6 +139,13 @@ public class JarvisTools {
         return tools;
     }
 
+    // tools run on the network thread, never on the main one, so waiting here blocks nothing on screen
+    private static void pause(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ignored) {}
+    }
+
     public static String run(Context c, String name, JSONObject in) {
         if (in == null) in = new JSONObject();
         if (name == null) name = "";
@@ -95,8 +170,71 @@ public class JarvisTools {
                 return "ok, nível agora " + JarvisMood.get(c);
             }
             case "fechar_tela":
-                JarvisActivity.exitRequested = true;
+                JarvisSession.exitRequested = true;
                 return "ok, a tela fecha quando você terminar de falar";
+
+            case "ver_tela": {
+                JarvisAccess a = JarvisAccess.instance;
+                return a == null ? JarvisAccess.OFF : a.dump();
+            }
+            case "tocar": {
+                JarvisAccess a = JarvisAccess.instance;
+                if (a == null) return JarvisAccess.OFF;
+                String r = a.tap(in.optInt("item", -1));
+                pause(700);
+                return r;
+            }
+            case "digitar": {
+                JarvisAccess a = JarvisAccess.instance;
+                if (a == null) return JarvisAccess.OFF;
+                return a.type(in.optInt("item", -1), in.optString("texto"));
+            }
+            case "rolar": {
+                JarvisAccess a = JarvisAccess.instance;
+                if (a == null) return JarvisAccess.OFF;
+                String r = a.scroll(in.optString("direcao"));
+                pause(500);
+                return r;
+            }
+            case "apertar": {
+                JarvisAccess a = JarvisAccess.instance;
+                if (a == null) return JarvisAccess.OFF;
+                String r = a.press(in.optString("botao"));
+                pause(700);
+                return r;
+            }
+            case "esperar":
+                pause(Math.max(1, Math.min(5, in.optInt("segundos", 1))) * 1000L);
+                return "ok";
+
+            case "buscar_no_app":
+                return JarvisPhone.search(c, in.optString("app"), in.optString("texto"));
+            case "whatsapp":
+                return JarvisPhone.whatsapp(c, in.optString("numero"), in.optString("texto"));
+            case "discar":
+                return JarvisPhone.dial(c, in.optString("numero"));
+            case "alarme":
+                return JarvisPhone.alarm(c, in.optInt("hora", -1), in.optInt("minuto", 0), in.optString("rotulo"));
+            case "timer":
+                return JarvisPhone.timer(c, in.optInt("segundos", 0), in.optString("rotulo"));
+            case "evento":
+                return JarvisPhone.event(c, in.optString("titulo"), in.optString("inicio"), in.optInt("duracao_min", 60));
+            case "configuracao":
+                return JarvisPhone.settings(c, in.optString("tela"));
+
+            case "criar_gatilho":
+                return JarvisTriggers.create(c, in.optString("tipo"), in.optString("quando"), in.optString("motivo"), in.optBoolean("diario"));
+            case "listar_gatilhos": {
+                java.util.List<JarvisTriggers.Trigger> list = JarvisTriggers.own(c);
+                if (list.isEmpty()) return "você não criou nenhum gatilho";
+                StringBuilder b = new StringBuilder();
+                for (JarvisTriggers.Trigger t : list) b.append(t.id).append(". ").append(JarvisTriggers.describe(t)).append('\n');
+                return b.toString().trim();
+            }
+            case "remover_gatilho":
+                return JarvisTriggers.remove(c, in.optInt("id", -1)) ? "ok, removido" : "não existe gatilho com esse número";
+            case "ficar_quieto":
+                return JarvisTriggers.setQuiet(c, in.optInt("minutos", 0));
             case "ler_memoria_ai": {
                 String v = AiMemory.get(c, in.optString("chave"));
                 return v == null ? "nada guardado nessa chave" : v;

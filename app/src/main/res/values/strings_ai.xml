@@ -16,5 +16,11 @@
         \n-jarvis -humor -> a má vontade dele, de 0 a 100
         \n-jarvis -persona -> salva como personalidade o texto copiado (-rm apaga, -status mostra)
         \n-jarvis -model [nome] -> modelo da conversa dele
+        \n-jarvis -acesso -> liga ou desliga ele enxergar e tocar na tela (e a bolinha por cima dos apps)
+        \n-jarvis -bloqueio -> apps em que ele não entra ([pedaço do pacote] acrescenta, -rm tira, -padrao desfaz)
+        \n-jarvis -gatilhos -> o que faz ele querer falar (-off [tipo], -on [tipo], -rm [número])
+        \n-jarvis -quieto [minutos] -> ele para de chamar por um tempo (0 volta)
+        \n-jarvis -log -> o que ele fez na tela
         \n-jarvis -fim -> encerra a conversa dele (a memória fica)</string>
+    <string name="jarvis_access_description">Permite que o Jarvis, o assistente de voz do T-Lau, leia o que está na tela e toque, digite e role por você, e mostre a bolinha dele por cima dos outros apps. Ele só age durante uma conversa que você começou. Não entra em apps de banco, pagamento e senha, nunca lê nem digita senha, e pede confirmação por voz antes de enviar, pagar, apagar ou instalar. O texto da tela é enviado à IA para ele decidir o próximo passo.</string>
 </resources>

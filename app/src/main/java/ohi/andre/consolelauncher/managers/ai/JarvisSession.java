@@ -292,6 +292,31 @@ public class JarvisSession {
         ask(text, false);
     }
 
+    // Written notes that clear up what he hears ("Ezer, não Wesley"). They are sent with the next turn after a change,
+    // and stay in the conversation history from then on. Memory only: they go away with the session.
+    private String addenda = "";
+    private boolean addendaDirty;
+
+    public String addenda() {
+        return addenda;
+    }
+
+    public void setAddenda(String text) {
+        text = text == null ? "" : text.trim();
+        if (text.equals(addenda)) return;
+        addenda = text;
+        addendaDirty = true;
+    }
+
+    /** Text to put before the next phrase, once per change. */
+    private String takeAddenda() {
+        if (!addendaDirty) return "";
+        addendaDirty = false;
+        if (addenda.length() == 0) return "[ADENDOS: ele apagou os adendos anteriores; vale só o que você ouvir agora.]\n";
+        return "[ADENDOS escritos por ele, à mão. Valem MAIS do que o que você ouviu por voz (o reconhecimento de fala erra, "
+                + "principalmente nomes). Use-os para entender este e os próximos pedidos, e não os comente:\n" + addenda + "]\n";
+    }
+
     /** The user wrote the question instead of speaking it (a tap on his own line of the full screen). */
     public void typed(String text) {
         if (closed || text == null) return;
@@ -415,7 +440,7 @@ public class JarvisSession {
         if (voice != null) voice.begin();
         if (!fromNotice) JarvisTriggers.talked(c);
 
-        JarvisClient.ask(c, phrase, fromNotice, new JarvisClient.Listener() {
+        JarvisClient.ask(c, fromNotice ? phrase : takeAddenda() + phrase, fromNotice, new JarvisClient.Listener() {
             @Override
             public void onText(final String delta) {
                 main.post(new Runnable() {

@@ -198,7 +198,7 @@ public class JarvisActivity extends Activity {
         youText.setLineSpacing(px(3), 1f);
         youText.setPadding(0, px(4), 0, px(10));
         youText.setMinHeight(px(36));
-        youText.setHint("toque aqui para escrever");
+        youText.setHint("toque para escrever · segure para adendos");
         youText.setHintTextColor(faint);
         View.OnClickListener write = new View.OnClickListener() {
             @Override
@@ -208,6 +208,15 @@ public class JarvisActivity extends Activity {
         };
         youLabel.setOnClickListener(write);
         youText.setOnClickListener(write);
+        View.OnLongClickListener notes = new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                editAddenda();
+                return true;
+            }
+        };
+        youLabel.setOnLongClickListener(notes);
+        youText.setOnLongClickListener(notes);
         talk.addView(youText);
         jarvisLabel = label("// JARVIS", 10, dim);
         talk.addView(jarvisLabel);
@@ -320,6 +329,44 @@ public class JarvisActivity extends Activity {
                     @Override
                     public void onClick(DialogInterface d, int w) {
                         if (session != null) session.typed(input.getText().toString());
+                    }
+                })
+                .setNeutralButton("Guardar como adendo", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        if (session == null) return;
+                        String t = input.getText().toString().trim();
+                        String old = session.addenda();
+                        session.setAddenda(old.length() == 0 ? t : t.length() == 0 ? old : old + "\n" + t);
+                        t = session.addenda();
+                        showNote(t.length() == 0 ? "Adendos apagados." : "Adendo guardado. Vale a partir do próximo pedido.", false);
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+        input.requestFocus();
+    }
+
+    /** Long press on his own line: the notes, to write or erase. */
+    private void editAddenda() {
+        if (session == null) return;
+        final EditText input = new EditText(this);
+        input.setHint("ex.: o contato é Ezer (E-Z-E-R), nunca Wesley");
+        input.setText(session.addenda());
+        input.setSelection(input.getText().length());
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setMaxLines(6);
+        new AlertDialog.Builder(this)
+                .setTitle("Adendos")
+                .setMessage("Notas que ajudam o Jarvis a te entender. Valem mais do que o que ele escuta. Deixe vazio para apagar.")
+                .setView(input)
+                .setPositiveButton("Guardar", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        if (session == null) return;
+                        String t = input.getText().toString().trim();
+                        session.setAddenda(t);
+                        showNote(t.length() == 0 ? "Adendos apagados." : "Adendo guardado. Vale a partir do próximo pedido.", false);
                     }
                 })
                 .setNegativeButton("Cancelar", null)

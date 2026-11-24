@@ -49,7 +49,14 @@ public class JarvisVoice {
         String id;
         File file;
         boolean done, failed;
+        int chars;
+        long synthStart;   // 0 while it waits for the previous piece to be synthesized
     }
+
+    // how the engine behaves on this phone, learned from the pieces already spoken (milliseconds per character)
+    private static double synthPerChar = 0, audioPerChar = 0;
+
+    private static final long MAX_HOLD_MS = 9000;
 
     private final Context c;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -64,6 +71,13 @@ public class JarvisVoice {
     private MediaPlayer player;
     private boolean inputClosed, started, finished = true;
     private int turn, seq;
+    private long holdSince;
+    private final Runnable pumpLater = new Runnable() {
+        @Override
+        public void run() {
+            pump();
+        }
+    };
 
     public JarvisVoice(Context context, Listener l) {
         c = context.getApplicationContext();
@@ -156,6 +170,8 @@ public class JarvisVoice {
         Item it = new Item();
         it.id = "t" + turn + "-" + (seq++);
         it.file = new File(dir, it.id + ".wav");
+        it.chars = Math.max(1, text.trim().length());
+        it.synthStart = synthesizing() ? 0 : System.currentTimeMillis();
         items.add(it);
 
         int result;
@@ -170,6 +186,11 @@ public class JarvisVoice {
             it.failed = true;
             pump();
         }
+    }
+
+    private boolean synthesizing() {
+        for (Item it : items) if (!it.done) return true;
+        return false;
     }
 
     /** No more pieces will come for this answer. */
@@ -195,6 +216,8 @@ public class JarvisVoice {
             if (tts != null && ready) tts.stop();
         } catch (Exception ignored) {}
         releasePlayer();
+        main.removeCallbacks(pumpLater);
+        holdSince = 0;
         for (Item it : items) it.file.delete();
         items.clear();
         playIndex = 0;
@@ -218,12 +241,27 @@ public class JarvisVoice {
             return;
         }
 
-        for (Item it : items) {
-            if (it.id.equals(id)) {
-                it.done = true;
-                it.failed = failed;
-                break;
+        long now = System.currentTimeMillis();
+        for (int i = 0; i < items.size(); i++) {
+            Item it = items.get(i);
+            if (!it.id.equals(id)) continue;
+
+            it.done = true;
+            it.failed = failed;
+
+            if (!failed && it.synthStart > 0) {
+                double perChar = (now - it.synthStart) / (double) it.chars;
+                synthPerChar = synthPerChar == 0 ? perChar : synthPerChar * 0.5 + perChar * 0.5;
             }
+
+            // the engine works on one piece at a time: the next one starts now
+            for (int j = i + 1; j < items.size(); j++) {
+                if (!items.get(j).done) {
+                    if (items.get(j).synthStart == 0) items.get(j).synthStart = now;
+                    break;
+                }
+            }
+            break;
         }
         pump();
     }
@@ -276,6 +314,27 @@ public class JarvisVoice {
                 }
             });
             player.prepare();
+
+            int duration = player.getDuration();
+            if (duration > 0) {
+                double perChar = duration / (double) it.chars;
+                audioPerChar = audioPerChar == 0 ? perChar : audioPerChar * 0.5 + perChar * 0.5;
+            }
+
+            // Before the first word, wait as long as needed for the rest to be ready in time: one longer silence
+            // at the start instead of stops in the middle of the speech.
+            if (!started) {
+                long wait = waitBeforeStart(Math.max(0, duration));
+                long now = System.currentTimeMillis();
+                if (holdSince == 0) holdSince = now;
+                if (wait > 120 && now - holdSince < MAX_HOLD_MS) {
+                    releasePlayer();
+                    main.removeCallbacks(pumpLater);
+                    main.postDelayed(pumpLater, Math.min(wait, 350));
+                    return;
+                }
+            }
+
             player.start();
 
             if (!started) {
@@ -285,6 +344,31 @@ public class JarvisVoice {
         } catch (Exception e) {
             next(it);
         }
+    }
+
+    /**
+     * How long the first piece should still wait so that every piece after it is ready when its turn comes.
+     * Uses what was learned about the engine: time to synthesize and time to speak, per character.
+     */
+    private long waitBeforeStart(long firstDuration) {
+        if (synthPerChar <= 0 || audioPerChar <= 0) return 0;
+
+        long now = System.currentTimeMillis();
+        double readyAt = 0;        // when the piece being looked at will be synthesized, from now
+        double playsAt = firstDuration;   // when it would start playing if the first piece started now
+        double wait = 0;
+
+        for (int i = playIndex + 1; i < items.size(); i++) {
+            Item it = items.get(i);
+            if (!it.done) {
+                double whole = synthPerChar * it.chars;
+                double left = it.synthStart > 0 ? Math.max(0, whole - (now - it.synthStart)) : whole;
+                readyAt += left;
+                wait = Math.max(wait, readyAt - playsAt);
+            }
+            playsAt += audioPerChar * it.chars;
+        }
+        return Math.round(wait);
     }
 
     private void next(Item it) {

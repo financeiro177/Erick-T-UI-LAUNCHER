@@ -700,17 +700,16 @@ public class JarvisActivity extends Activity {
     }
 
     /**
-     * Hands complete pieces of the answer to the voice. A piece ends at a full stop, question or exclamation mark;
-     * the very first one may also end at a comma, so that he starts talking as early as possible.
+     * Hands complete sentences of the answer to the voice. A piece ends only at a full stop, question or exclamation
+     * mark: cutting at commas made the voice stop in the middle of a sentence while the next piece was being prepared.
      */
     private void cut(boolean everything) {
         while (true) {
             int end = -1;
             for (int i = 0; i < pending.length(); i++) {
                 char ch = pending.charAt(i);
-                boolean strong = ch == '.' || ch == '!' || ch == '?' || ch == '\n' || ch == '…' || ch == ';' || ch == ':';
-                boolean weak = firstPiece && ch == ',' && i >= 10;
-                if (!strong && !weak) continue;
+                boolean strong = ch == '.' || ch == '!' || ch == '?' || ch == '\n' || ch == '…';
+                if (!strong) continue;
 
                 // the mark must be followed by a space: "3.5" or "..." in the middle are not an end
                 if (i + 1 >= pending.length()) {

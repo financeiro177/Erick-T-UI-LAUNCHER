@@ -203,6 +203,8 @@ public class TlauSetup extends RedirectCommand {
         b.append('\n').append(places > 0 ? "[ok] " : "[  ] ").append("locais salvos: ").append(places)
                 .append(places > 0 ? "" : " (loc -save nome latitude longitude)");
 
+        b.append("\n     ").append(TlauBackup.statusLine());
+
         if (pending == 0 && key) b.append("\nTudo ativado. O T-Lau está pronto.");
         else if (pending > 0) b.append("\nFaltam ").append(pending).append(" item(ns) do sistema. Rode: t-lau -config -default");
         return b.toString();

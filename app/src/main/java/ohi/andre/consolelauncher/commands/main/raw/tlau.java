@@ -11,6 +11,7 @@ import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.managers.ai.AiConfig;
 import ohi.andre.consolelauncher.managers.ai.AiUsage;
+import ohi.andre.consolelauncher.managers.tlau.TlauBackup;
 import ohi.andre.consolelauncher.managers.tlau.TlauSetup;
 import ohi.andre.consolelauncher.managers.tlau.TlauUser;
 import ohi.andre.consolelauncher.managers.xml.XMLPrefsManager;
@@ -59,6 +60,8 @@ public class tlau implements CommandAbstraction {
                 return null;
             }
             if (b.equals("status")) return say(c, TlauSetup.report(c));
+            if (b.equals("backup")) return say(c, TlauBackup.backup(c));
+            if (b.equals("restore") || b.equals("restaurar")) return say(c, TlauBackup.restore(c));
 
             if (b.equals("ia") || b.equals("ai")) {
                 if (d.equals("modelo") || d.equals("model") || d.equals("modelos")) {
@@ -88,7 +91,9 @@ public class tlau implements CommandAbstraction {
             return say(c, "== t-lau -config ==\n"
                     + "-default -> passo a passo do que precisa estar ativado\n"
                     + "-status  -> o que está ativado e o que falta\n"
-                    + "-ia      -> ajustes da IA (-ia -modelo lista e explica os modelos)");
+                    + "-ia      -> ajustes da IA (-ia -modelo lista e explica os modelos)\n"
+                    + "-backup  -> grava locais, memória, lembretes e ajustes em " + TlauBackup.where() + "\n"
+                    + "-restore -> recupera o que está nesse arquivo");
         }
 
         return c.getString(helpRes());

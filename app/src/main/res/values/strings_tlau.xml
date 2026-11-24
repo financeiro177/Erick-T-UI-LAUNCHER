@@ -6,7 +6,7 @@
         \n-config -ia -> ajustes da IA; -config -ia -modelo explica e lista os modelos
         \n-config -backup / -config -restore -> grava e recupera locais, memória, lembretes e ajustes (pasta Documentos/T-Lau)
         \n-user -> troca o usuário (Teetsuuo ou Erick)
-        \nO hífen é opcional: t-lau config ia modelo</string>
+        \nO hífen pode ser omitido ao digitar; as sugestões sempre mostram com ele</string>
     <string name="tlau_user_hint">teetsuuo ou erick</string>
     <string name="tlau_setup_hint">ok, pular ou sair</string>
 </resources>

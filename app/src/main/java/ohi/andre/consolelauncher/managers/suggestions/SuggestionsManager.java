@@ -826,8 +826,8 @@ public class SuggestionsManager {
             path.append(words[i].replaceFirst("^-+", ""));
         }
 
+        // options are always shown (and written) with the "-", even when the user is typing without it
         String typed = lastWord == null ? Tuils.EMPTYSTRING : lastWord.toLowerCase();
-        boolean dash = typed.startsWith(Tuils.MINUS);
         typed = typed.replaceFirst("^-+", "");
 
         for (String[] node : TLAU_TREE) {
@@ -837,7 +837,7 @@ public class SuggestionsManager {
             boolean values = node[0].equals("config ia modelo") || node[0].equals("user");
             for (int i = 1; i < node.length; i++) {
                 if (node[i].startsWith(typed)) {
-                    suggestions.add(new Suggestion(beforeLastSpace, (dash && !values ? Tuils.MINUS : Tuils.EMPTYSTRING) + node[i], false, 0));
+                    suggestions.add(new Suggestion(beforeLastSpace, (values ? Tuils.EMPTYSTRING : Tuils.MINUS) + node[i], false, 0));
                 }
             }
         }
@@ -849,10 +849,35 @@ public class SuggestionsManager {
     private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key", "-jarvis"};
     private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory", "-jarvis"};
 
+    private static final String[] JARVIS_OPTIONS = {"-voz", "-memory", "-humor", "-model", "-persona", "-fim"};
+    private static final String[] JARVIS_VOICE_OPTIONS = {"-teste", "-velocidade", "-tom", "-padrao"};
+    private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao"};
+
     private void suggestAiOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
-        if (beforeLastSpace == null || beforeLastSpace.trim().contains(Tuils.SPACE)) return;
+        if (beforeLastSpace == null) return;
 
         String typed = lastWord == null ? Tuils.EMPTYSTRING : lastWord.toLowerCase();
+
+        // "ai -jarvis ..." has options of its own, one level down (and "-voz" one more)
+        String[] words = beforeLastSpace.trim().toLowerCase().split("\\s+");
+        if (words.length >= 2 && words[1].replaceFirst("^-+", "").equals("jarvis")) {
+            String[] options = words.length == 2 ? JARVIS_OPTIONS
+                    : words.length == 3 && words[2].replaceFirst("^-+", "").equals("voz") ? JARVIS_VOICE_OPTIONS : null;
+            if (options == null) return;
+
+            String bare = typed.replaceFirst("^-+", "");
+            for (String o : options) {
+                if (!o.substring(1).startsWith(bare)) continue;
+
+                boolean run = false;
+                for (String r : JARVIS_RUN_ON_CLICK) if (r.equals(o)) run = true;
+
+                suggestions.add(new Suggestion(beforeLastSpace, o, run && clickToLaunch, 0));
+            }
+            return;
+        }
+
+        if (beforeLastSpace.trim().contains(Tuils.SPACE)) return;
         if (typed.length() > 0 && !typed.startsWith(Tuils.MINUS)) return;
 
         for (String o : AI_OPTIONS) {

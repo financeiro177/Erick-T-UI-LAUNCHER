@@ -41,6 +41,9 @@ public class help implements CommandAbstraction {
     public String onNotArgEnough(ExecutePack pack, int nArgs) {
         MainPack info = (MainPack) pack;
         List<String> toPrint = new ArrayList<>(Arrays.asList(info.commandGroup.getCommandNames()));
+        // shown the way it is typed
+        int tlau = toPrint.indexOf("tlau");
+        if (tlau >= 0) toPrint.set(tlau, "t-lau");
 
         Collections.sort(toPrint, Tuils::alphabeticCompare);
 

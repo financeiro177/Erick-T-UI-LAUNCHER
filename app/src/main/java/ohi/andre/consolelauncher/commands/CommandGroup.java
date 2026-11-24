@@ -51,6 +51,8 @@ public class CommandGroup {
     }
 
     public CommandAbstraction getCommandByName(String name) {
+        // the launcher's own command is written "t-lau"; its class cannot have the hyphen
+        if ("t-lau".equalsIgnoreCase(name)) name = "tlau";
         for(CommandAbstraction c : commands) {
             if(c.getClass().getSimpleName().equals(name)) {
                 return c;

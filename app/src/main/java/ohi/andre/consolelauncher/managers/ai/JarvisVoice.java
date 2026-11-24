@@ -56,7 +56,10 @@ public class JarvisVoice {
     // how the engine behaves on this phone, learned from the pieces already spoken (milliseconds per character)
     private static double synthPerChar = 0, audioPerChar = 0;
 
-    private static final long MAX_HOLD_MS = 9000;
+    private static final long MAX_HOLD_MS = 3500;
+
+    // a short silence between two sentences sounds natural, so that much lateness per sentence is not waited for
+    private static final double PAUSE_OK_MS = 600;
 
     private final Context c;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -355,7 +358,7 @@ public class JarvisVoice {
 
         long now = System.currentTimeMillis();
         double readyAt = 0;        // when the piece being looked at will be synthesized, from now
-        double playsAt = firstDuration;   // when it would start playing if the first piece started now
+        double playsAt = firstDuration + PAUSE_OK_MS;   // when it would start playing if the first piece started now
         double wait = 0;
 
         for (int i = playIndex + 1; i < items.size(); i++) {
@@ -366,7 +369,7 @@ public class JarvisVoice {
                 readyAt += left;
                 wait = Math.max(wait, readyAt - playsAt);
             }
-            playsAt += audioPerChar * it.chars;
+            playsAt += audioPerChar * it.chars + PAUSE_OK_MS;
         }
         return Math.round(wait);
     }

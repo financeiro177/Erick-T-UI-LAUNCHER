@@ -1176,11 +1176,13 @@ public class SuggestionsManager {
             for (String s : cmds) {
                 if(canInsert == 0 || Thread.currentThread().isInterrupted()) return;
 
-                if(s.startsWith(afterLastSpace)) {
+                // the launcher's own command is shown and written "t-lau"
+                boolean isTlau = "tlau".equals(s);
+                if(s.startsWith(afterLastSpace) || (isTlau && "t-lau".startsWith(afterLastSpace))) {
                     CommandAbstraction cmd = info.commandGroup.getCommandByName(s);
                     int[] args = cmd.argType();
                     boolean exec = args == null || args.length == 0;
-                    suggestions.add(new Suggestion(beforeLastSpace , s, exec && clickToLaunch, Suggestion.TYPE_COMMAND));
+                    suggestions.add(new Suggestion(beforeLastSpace , isTlau ? "t-lau" : s, exec && clickToLaunch, Suggestion.TYPE_COMMAND));
                     canInsert--;
                 }
             }
@@ -1201,7 +1203,9 @@ public class SuggestionsManager {
                 int[] args = cmd.argType();
                 boolean exec = args == null || args.length == 0;
 
-                suggestions.add(new Suggestion(beforeLastSpace , cmd.getClass().getSimpleName(), exec && clickToLaunch, Suggestion.TYPE_COMMAND));
+                String shown = cmd.getClass().getSimpleName();
+                if ("tlau".equals(shown)) shown = "t-lau";
+                suggestions.add(new Suggestion(beforeLastSpace , shown, exec && clickToLaunch, Suggestion.TYPE_COMMAND));
                 canInsert--;
             }
         }

@@ -48,7 +48,9 @@ public class JarvisActivity extends Activity {
     private static final int ASK_MIC = 71;
 
     private static final int BOOT = 0, LISTENING = 1, THINKING = 2, SPEAKING = 3, STANDBY = 4;
-    private static final int MAX_SILENT_ROUNDS = 4;
+    // The microphone is never on by itself: the screen opens muted and a tap on the rings turns it on.
+    // After an answer he listens once more, so a conversation can go on; one silence and it is muted again.
+    private static final int MAX_SILENT_ROUNDS = 1;
 
     private static final int AMBER = 0xFFFFB454, WHITE = 0xFFF2FFF6, INK = 0xFFE9FFF1;
 
@@ -340,8 +342,8 @@ public class JarvisActivity extends Activity {
             setState(STANDBY);
             return;
         }
-        note("", INK);
-        listen();
+        note("Toque no anel para falar.", dim);
+        setState(STANDBY);
     }
 
     /** Small grey or amber line in the place of the answer (status, errors). */
@@ -822,13 +824,9 @@ public class JarvisActivity extends Activity {
         super.onResume();
         resumed = true;
         main.postDelayed(tick, 15000);
-        if (state == BOOT) {
-            maybeStart();
-        } else if (listenOnResume && state == STANDBY && micGranted && AiConfig.hasKey(this)) {
-            listenOnResume = false;
-            silentRounds = 0;
-            listen();
-        }
+        // coming back to the screen never turns the microphone on: that takes a tap
+        listenOnResume = false;
+        if (state == BOOT) maybeStart();
     }
 
     @Override

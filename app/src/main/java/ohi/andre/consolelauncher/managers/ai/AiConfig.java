@@ -56,12 +56,37 @@ public class AiConfig {
 
     // ---- model ----
 
+    /** The cheapest model is always the default; another one only lasts while the conversation is open. */
     public static String model(Context c) {
-        return prefs(c).getString(MODEL, HAIKU);
+        String chosen = AiConversation.modelOverride();
+        return chosen != null ? chosen : HAIKU;
     }
 
+    public static String defaultModel() {
+        return HAIKU;
+    }
+
+    /** Valid until the conversation ends (ai -fim, ai -novo, 30 min idle or the app closing). */
     public static void setModel(Context c, String model) {
-        prefs(c).edit().putString(MODEL, model).apply();
+        AiConversation.setModelOverride(HAIKU.equals(model) ? null : model);
+    }
+
+    /** The lines of "ai -model" and "t-lau -config -ia -modelo": what exists and what it costs. */
+    public static String modelList(Context c) {
+        String current = model(c);
+        StringBuilder b = new StringBuilder("== ai: modelos ==");
+        String[][] all = {
+                {"haiku", HAIKU, "rápido e barato; o padrão, serve para o dia a dia"},
+                {"sonnet", SONNET, "mais capaz; para raciocínio e textos mais difíceis"},
+                {"opus", OPUS, "o mais capaz e mais caro; só para tarefa pesada"}};
+        for (String[] m : all) {
+            double[] price = prices(m[1]);
+            b.append('\n').append(m[1].equals(current) ? "* " : "  ").append(m[0])
+                    .append(String.format(Locale.US, "  US$ %.2f entrada / %.2f saída por milhão de tokens", price[0], price[1]))
+                    .append("\n    ").append(m[2]);
+        }
+        b.append("\nTrocar: ai -model sonnet. A troca vale só para a conversa atual; ao encerrar (ai -fim, ai -novo ou 30 min parado) volta ao haiku.");
+        return b.toString();
     }
 
     /** haiku / sonnet / opus, or a full id starting with "claude-". Returns null when unknown. */

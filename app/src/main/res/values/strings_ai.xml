@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="help_ai">[frase] -> conversa com o Claude (continua a conversa aberta)
+    <string name="help_ai">[frase] -> conversa com o Claude (continua a conversa aberta); também cria lembretes
         \n-novo [frase] -> limpa a conversa e começa outro assunto
         \n-fim -> encerra a conversa
         \n-custo -> tokens e gasto estimado
@@ -8,5 +8,6 @@
         \n-ciclo [dia] -> dia do mês em que o plano renova (1 a 28)
         \n-aviso [tokens] -> avisa quando a conversa passar disso (0 desliga)
         \n-model [haiku|sonnet|opus] -> troca o modelo
+        \n-memory -> o que a IA guarda (-memory -rm chave esquece)
         \n-key -> salva a chave copiada na área de transferência</string>
 </resources>

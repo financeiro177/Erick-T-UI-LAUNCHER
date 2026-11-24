@@ -566,6 +566,9 @@ public class SuggestionsManager {
         beforeLastSpace  = beforeLastSpace .trim();
         lastWord = lastWord.trim();
 
+        // the launcher's own command ("t-lau" or "tlau"): its options are suggested with or without "-"
+        if (suggestTlau(suggestionList, beforeLastSpace, lastWord)) return suggestionList;
+
 //        lastword = 0
         if (lastWord.length() == 0) {
 
@@ -803,10 +806,48 @@ public class SuggestionsManager {
         }
     }
 
+    private static final String[][] TLAU_TREE = {
+            {"", "config", "user", "status"},
+            {"config", "default", "status", "ia", "backup", "restore"},
+            {"config ia", "modelo"},
+            {"config ia modelo", "haiku", "sonnet", "opus"},
+            {"user", "teetsuuo", "erick"}};
+
+    /** True when the line being typed is the "t-lau" command (the list may still be empty). */
+    private boolean suggestTlau(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
+        if (beforeLastSpace == null || beforeLastSpace.length() == 0) return false;
+
+        String[] words = beforeLastSpace.toLowerCase().split("\\s+");
+        if (!words[0].equals("tlau") && !words[0].equals("t-lau")) return false;
+
+        StringBuilder path = new StringBuilder();
+        for (int i = 1; i < words.length; i++) {
+            if (path.length() > 0) path.append(' ');
+            path.append(words[i].replaceFirst("^-+", ""));
+        }
+
+        String typed = lastWord == null ? Tuils.EMPTYSTRING : lastWord.toLowerCase();
+        boolean dash = typed.startsWith(Tuils.MINUS);
+        typed = typed.replaceFirst("^-+", "");
+
+        for (String[] node : TLAU_TREE) {
+            if (!node[0].equals(path.toString())) continue;
+
+            // names (models, users) are values, not options: they never take the "-"
+            boolean values = node[0].equals("config ia modelo") || node[0].equals("user");
+            for (int i = 1; i < node.length; i++) {
+                if (node[i].startsWith(typed)) {
+                    suggestions.add(new Suggestion(beforeLastSpace, (dash && !values ? Tuils.MINUS : Tuils.EMPTYSTRING) + node[i], false, 0));
+                }
+            }
+        }
+        return true;
+    }
+
     // options of the "ai" command. Only right after "ai" and only while the word starts with "-":
     // as soon as a normal sentence begins, nothing is suggested.
-    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-key"};
-    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo"};
+    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key"};
+    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory"};
 
     private void suggestAiOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
         if (beforeLastSpace == null || beforeLastSpace.trim().contains(Tuils.SPACE)) return;

@@ -103,7 +103,7 @@ public enum Rss implements XMLPrefsSave {
 
         @Override
         public String info() {
-            return "If true, you will see a message when T-UI downloads a feed";
+            return "If true, you will see a message when T-Lau downloads a feed";
         }
     },
     rss_download_format {

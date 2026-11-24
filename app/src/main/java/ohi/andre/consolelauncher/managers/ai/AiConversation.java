@@ -13,12 +13,12 @@ public class AiConversation {
     public static final long INACTIVITY_MS = 30L * 60L * 1000L;
 
     public static class Message {
-        public final String role; // "user" or "assistant"
-        public final String text;
+        public final String role;    // "user" or "assistant"
+        public final Object content; // a String, or a JSONArray of content blocks (tool calls and tool results)
 
-        Message(String role, String text) {
+        public Message(String role, Object content) {
             this.role = role;
-            this.text = text;
+            this.content = content;
         }
     }
 
@@ -27,6 +27,7 @@ public class AiConversation {
     private static long billedIn, billedOut;   // tokens spent by this conversation so far
     private static long lastInput;             // input tokens of the last request ~ current size of the context
     private static boolean sizeWarned;
+    private static String modelOverride;       // model chosen for this conversation only; null = the default
 
     public static synchronized boolean isOpen() {
         return !messages.isEmpty();
@@ -42,6 +43,15 @@ public class AiConversation {
         lastActivity = 0;
         billedIn = billedOut = lastInput = 0;
         sizeWarned = false;
+        modelOverride = null;
+    }
+
+    public static synchronized String modelOverride() {
+        return modelOverride;
+    }
+
+    public static synchronized void setModelOverride(String model) {
+        modelOverride = model;
     }
 
     /** Copy of the history, to be sent together with the new user message. */
@@ -53,13 +63,16 @@ public class AiConversation {
         return messages.size();
     }
 
-    /** Only called after a successful exchange, so a failed request never pollutes the history. */
-    public static synchronized void addExchange(String user, String assistant, long inTokens, long outTokens, long now) {
-        messages.add(new Message("user", user));
-        messages.add(new Message("assistant", assistant));
+    /**
+     * Only called after a successful turn, so a failed request never pollutes the history.
+     * "turn" holds the user message, any tool calls/results in between and the final answer;
+     * inTokens/outTokens are the sum of the requests of the turn, lastIn the input of the last one.
+     */
+    public static synchronized void commit(List<Message> turn, long inTokens, long outTokens, long lastIn, long now) {
+        messages.addAll(turn);
         billedIn += inTokens;
         billedOut += outTokens;
-        lastInput = inTokens;
+        lastInput = lastIn;
         lastActivity = now;
     }
 

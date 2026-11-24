@@ -146,6 +146,7 @@ public class MainManager {
         multipleCmdSeparator = XMLPrefsManager.get(Behavior.multiple_cmd_separator);
 
         CommandGroup group = new CommandGroup(mContext, COMMANDS_PKG);
+        ohi.andre.consolelauncher.managers.ai.AiTools.commands = group;
 
         try {
             contactManager = new ContactManager(mContext);
@@ -296,6 +297,11 @@ public class MainManager {
             Tuils.sendOutput(mContext, output);
 
             return;
+        }
+
+        // the launcher's own command is typed "t-lau"; command names are plain letters, so it maps to the class "tlau"
+        if (input.length() >= 5 && input.substring(0, 5).equalsIgnoreCase("t-lau") && (input.length() == 5 || input.charAt(5) == ' ')) {
+            input = "tlau" + input.substring(5);
         }
 
         if(alias != null && showAliasValue) {

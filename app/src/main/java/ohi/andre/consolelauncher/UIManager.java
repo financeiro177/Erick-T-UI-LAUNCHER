@@ -151,12 +151,19 @@ public class UIManager implements OnTouchListener {
     private class NotesRunnable implements Runnable {
 
         int updateTime = 2000;
+        CharSequence lastNotes, lastReminders;
 
         @Override
         public void run() {
             if(notesManager != null) {
-                if(notesManager.hasChanged) {
-                    UIManager.this.updateText(Label.notes, Tuils.span(mContext, labelSizes[Label.notes.ordinal()], notesManager.getNotes()));
+                CharSequence reminders = ohi.andre.consolelauncher.managers.reminder.ReminderSummary.text(mContext);
+                boolean remindersChanged = lastReminders == null || !TextUtils.equals(reminders, lastReminders.toString());
+
+                if(notesManager.hasChanged || remindersChanged) {
+                    if(notesManager.hasChanged || lastNotes == null) lastNotes = notesManager.getNotes();
+                    lastReminders = reminders;
+
+                    UIManager.this.updateText(Label.notes, Tuils.span(mContext, labelSizes[Label.notes.ordinal()], TextUtils.concat(reminders, lastNotes)));
                 }
 
                 handler.postDelayed(this, updateTime);

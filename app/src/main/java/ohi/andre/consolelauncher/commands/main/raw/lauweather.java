@@ -20,7 +20,7 @@ import ohi.andre.consolelauncher.tuils.interfaces.Reloadable;
  * Created by francescoandreuzzi on 21/05/2018.
  */
 
-public class tuiweather extends ParamCommand {
+public class lauweather extends ParamCommand {
 
     private enum Param implements ohi.andre.consolelauncher.commands.main.Param {
 

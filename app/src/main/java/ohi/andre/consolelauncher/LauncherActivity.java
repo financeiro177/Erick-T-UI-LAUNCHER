@@ -236,7 +236,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
                     intent.setAction(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
                     startActivityForResult(intent, 100);
                 }
-                Toast.makeText(this, "Please grant storage permissions to T-UI", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Please grant storage permissions to T-Lau", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -406,43 +406,11 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     }
 
 
-    // Linhas da arte ASCII exibidas no boot, uma por vez.
-    private static final String[] BOOT_ART = {
-            " _____     _   _ ___ ",
-            "|_   _|   | | | |_ _|",
-            "  | |_   _| | | || | ",
-            "  | | | | | | | || | ",
-            "  | | |_| | |_| || | ",
-            "  |_|\\__,_|\\___/|___|",
-            "",
-            "[ TERMINAL DE ACESSO SEGURO ]"
-    };
-
+    // A arte do boot (T-LAU ou E-LAU, conforme "t-lau -user") vem depois das boas-vindas, para ficar logo acima
+    // da linha de comando e aparecer mesmo com o teclado aberto.
     private void playBootSequence() {
-        final android.os.Handler bootHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-        final int lineDelay = 90;
-
-        for (int i = 0; i < BOOT_ART.length; i++) {
-            final String line = BOOT_ART[i];
-            bootHandler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        ui.setOutput(Tuils.span(line + "\n", XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
-                    } catch (Exception ignored) {}
-                }
-            }, i * lineDelay);
-        }
-
-        bootHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ui.setOutput("\n", TerminalManager.CATEGORY_NO_COLOR);
-                    ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
-                } catch (Exception ignored) {}
-            }
-        }, BOOT_ART.length * lineDelay + 150);
+        ui.setOutput(buildWelcomeMessage(), TerminalManager.CATEGORY_OUTPUT);
+        ui.setOutput(Tuils.span(ohi.andre.consolelauncher.managers.tlau.TlauUser.art(this), XMLPrefsManager.getColor(Theme.input_color)), TerminalManager.CATEGORY_NO_COLOR);
     }
 
     private String buildWelcomeMessage() {
@@ -465,7 +433,7 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
         sb.append("Bem-vindo de volta, ").append(user).append(".\n");
         sb.append(greeting).append(". ").append(day).append(", ").append(when).append("\n");
         sb.append("Dispositivo: ").append(Build.MODEL).append(" | Android ").append(Build.VERSION.RELEASE).append("\n\n");
-        sb.append(user).append("@terminal:~# todos os sistemas operacionais.\n");
+        sb.append(user).append("@t-lau:~# todos os sistemas operacionais.\n");
         return sb.toString();
     }
 
@@ -482,6 +450,12 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
 
         // a saved mock location whose service died (update, force stop, system kill) is resumed here
         MockLocationService.ensureRunning(this);
+
+        // reminders that came due while the app was away are shown as a card
+        ohi.andre.consolelauncher.managers.reminder.ReminderCard.attach(this);
+
+        // after an install or update, the installer files left in Downloads are removed
+        ohi.andre.consolelauncher.managers.tlau.TlauCleanup.runIfUpdated(this);
     }
 
     @Override
@@ -494,6 +468,8 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     @Override
     protected void onPause() {
         super.onPause();
+
+        ohi.andre.consolelauncher.managers.reminder.ReminderCard.detach(this);
 
         if (ui != null && main != null) {
             ui.pause();

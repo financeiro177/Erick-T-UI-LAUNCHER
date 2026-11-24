@@ -19,7 +19,7 @@ import ohi.andre.consolelauncher.tuils.Tuils;
  * Created by francescoandreuzzi on 18/01/2017.
  */
 
-public class tuixt implements CommandAbstraction {
+public class lauxt implements CommandAbstraction {
 
     @Override
     public String exec(ExecutePack pack) {

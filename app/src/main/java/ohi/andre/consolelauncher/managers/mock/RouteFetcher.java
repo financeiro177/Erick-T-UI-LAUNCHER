@@ -56,7 +56,7 @@ public class RouteFetcher {
             // OSRM takes longitude first
             Request request = new Request.Builder()
                     .url(String.format(Locale.US, URL, fromLon, fromLat, toLon, toLat))
-                    .header("User-Agent", "tui-launcher-loc")
+                    .header("User-Agent", "t-lau-loc")
                     .build();
 
             String body;

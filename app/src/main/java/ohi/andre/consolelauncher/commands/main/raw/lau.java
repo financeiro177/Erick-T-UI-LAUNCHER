@@ -27,7 +27,7 @@ import ohi.andre.consolelauncher.tuils.stuff.PolicyReceiver;
  * Created by francescoandreuzzi on 10/06/2017.
  */
 
-public class tui extends ParamCommand {
+public class lau extends ParamCommand {
 
     private enum Param implements ohi.andre.consolelauncher.commands.main.Param {
 

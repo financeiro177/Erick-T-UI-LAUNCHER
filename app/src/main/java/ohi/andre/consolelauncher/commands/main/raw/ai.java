@@ -14,6 +14,7 @@ import ohi.andre.consolelauncher.commands.ExecutePack;
 import ohi.andre.consolelauncher.managers.ai.AiClient;
 import ohi.andre.consolelauncher.managers.ai.AiConfig;
 import ohi.andre.consolelauncher.managers.ai.AiConversation;
+import ohi.andre.consolelauncher.managers.ai.AiMemory;
 import ohi.andre.consolelauncher.managers.ai.AiUsage;
 
 /**
@@ -27,6 +28,7 @@ import ohi.andre.consolelauncher.managers.ai.AiUsage;
  *   ai -ciclo [day]          day of the month when the plan renews
  *   ai -aviso [tokens]       warns when the conversation passes this size
  *   ai -model [name]         haiku / sonnet / opus
+ *   ai -memory               what the assistant keeps (-rm key forgets one item)
  *   ai -key                  saves the key that is in the clipboard, then clears the clipboard
  *
  * It is a plain CommandAbstraction (not a ParamCommand) so a free sentence can follow "ai".
@@ -63,14 +65,30 @@ public class ai implements CommandAbstraction {
                     return model(c, rest);
                 case "-key":
                     return key(c);
+                case "-memory":
+                case "-memoria":
+                    return memory(c, rest);
                 default:
                     // "-word" is taken as a mistyped option; anything else (e.g. "-5 + 3") is a normal phrase
                     if (opt.matches("-[a-zà-ú]+")) return say(c, "ai: opção desconhecida (" + opt + "). Digite ai para ver a ajuda.");
             }
         }
 
+        // "ai custo", "ai limite 50": an option typed without "-". Says so instead of spending a request on it.
+        String[] words = line.split("\\s+");
+        String firstWord = words[0].toLowerCase(Locale.ROOT);
+        boolean optionAlone = words.length == 1 && FORGOTTEN_DASH.contains(" " + firstWord + " ");
+        boolean optionWithValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + firstWord + " ")
+                && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
+        if (optionAlone || optionWithValue) {
+            return say(c, "ai: faltou o \"-\". Para essa opção use: ai -" + line.toLowerCase(Locale.ROOT)
+                    + "\n(se era mesmo uma pergunta, escreva com mais palavras)");
+        }
+
         return chat(c, line);
     }
+
+    private static final String FORGOTTEN_DASH = " custo fim limite ciclo aviso model memory memoria key ";
 
     // ---- conversation ----
 
@@ -195,13 +213,31 @@ public class ai implements CommandAbstraction {
     // ---- model and key ----
 
     private static String model(Context c, String rest) {
-        if (rest.length() == 0) return say(c, "ai: modelo atual: " + AiConfig.model(c) + ". Opções: haiku, sonnet, opus");
+        if (rest.length() == 0) return say(c, AiConfig.modelList(c));
 
         String m = AiConfig.resolveModel(rest);
-        if (m == null) return say(c, "ai: modelo desconhecido. Use haiku, sonnet ou opus");
+        if (m == null) return say(c, "ai: modelo desconhecido.\n" + AiConfig.modelList(c));
 
         AiConfig.setModel(c, m);
-        return say(c, "ai: modelo = " + m);
+        return say(c, m.equals(AiConfig.defaultModel()) ? "ai: modelo = " + m + " (o padrão)"
+                : "ai: modelo = " + m + " só nesta conversa; ao encerrar volta ao " + AiConfig.defaultModel().replace("claude-", ""));
+    }
+
+    // "ai -memory" lists what the assistant keeps; "ai -memory -rm chave" forgets one item
+    private static String memory(Context c, String rest) {
+        if (rest.toLowerCase(Locale.ROOT).startsWith("-rm")) {
+            String k = rest.substring(3).trim();
+            if (k.length() == 0) return say(c, "ai: informe a chave. Exemplo: ai -memory -rm contabilidade");
+            return say(c, AiMemory.remove(c, k) ? "ai: esquecido: " + AiMemory.normalize(k) : "ai: não há essa chave na memória.");
+        }
+
+        java.util.List<String> keys = AiMemory.keys(c);
+        if (keys.isEmpty()) return say(c, "ai: a memória está vazia. Ela só guarda algo quando você aceita a sugestão.");
+
+        StringBuilder b = new StringBuilder("== ai: memória (" + keys.size() + " de " + AiMemory.MAX_ITEMS + ") ==");
+        for (String k : keys) b.append('\n').append(k).append(" = ").append(AiMemory.get(c, k));
+        b.append("\n(para esquecer: ai -memory -rm chave)");
+        return say(c, b.toString());
     }
 
     private static String key(Context c) {

@@ -10,7 +10,7 @@
         \n-model [haiku|sonnet|opus] -> troca o modelo
         \n-memory -> o que a IA guarda (-memory -rm chave esquece)
         \n-key -> salva a chave copiada na área de transferência
-        \n-jarvis -> abre o Jarvis: tela cheia, só por voz, com personalidade e memória próprias
+        \n-jarvis -> abre o Jarvis: tela cheia, só por voz, com personalidade e memória próprias (atalho: digite só -jarvis)
         \n-jarvis -voz -> voz das respostas ([número] escolhe, -teste ouve, -velocidade [n] e -tom [n] ajustam, -padrao desfaz)
         \n-jarvis -memory -> o que o Jarvis guardou (-rm chave esquece, -limpar apaga tudo)
         \n-jarvis -humor -> a má vontade dele, de 0 a 100

@@ -304,6 +304,15 @@ public class MainManager {
             input = "tlau" + input.substring(5);
         }
 
+        // "-jarvis" (or "jarvis") alone is a shortcut for "ai -jarvis", options included: "-jarvis -voz" = "ai -jarvis -voz"
+        {
+            String lower = input.toLowerCase();
+            int len = lower.startsWith("-jarvis") ? 7 : lower.startsWith("jarvis") ? 6 : 0;
+            if (len > 0 && (input.length() == len || input.charAt(len) == ' ')) {
+                input = "ai -jarvis" + input.substring(len);
+            }
+        }
+
         if(alias != null && showAliasValue) {
            Tuils.sendOutput(aliasContentColor, mContext, aliasManager.formatLabel(alias, input));
         }

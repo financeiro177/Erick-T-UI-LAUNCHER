@@ -569,6 +569,16 @@ public class SuggestionsManager {
         // the launcher's own command ("t-lau" or "tlau"): its options are suggested with or without "-"
         if (suggestTlau(suggestionList, beforeLastSpace, lastWord)) return suggestionList;
 
+        // "-jarvis" typed alone opens the voice assistant; its options are suggested like the ones of "ai -jarvis"
+        if (beforeLastSpace.length() == 0 && lastWord.startsWith(Tuils.MINUS) && "-jarvis".startsWith(lastWord.toLowerCase())) {
+            suggestionList.add(new Suggestion(beforeLastSpace, "-jarvis", clickToLaunch, 0));
+            return suggestionList;
+        }
+        if (beforeLastSpace.length() > 0 && isJarvis(beforeLastSpace.toLowerCase().split("\\s+")[0])) {
+            suggestAiOptions(suggestionList, beforeLastSpace, lastWord);
+            return suggestionList;
+        }
+
 //        lastword = 0
         if (lastWord.length() == 0) {
 
@@ -853,6 +863,10 @@ public class SuggestionsManager {
     private static final String[] JARVIS_VOICE_OPTIONS = {"-teste", "-velocidade", "-tom", "-padrao"};
     private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao"};
 
+    private static boolean isJarvis(String word) {
+        return word.equals("-jarvis") || word.equals("jarvis");
+    }
+
     private void suggestAiOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
         if (beforeLastSpace == null) return;
 
@@ -860,9 +874,10 @@ public class SuggestionsManager {
 
         // "ai -jarvis ..." has options of its own, one level down (and "-voz" one more)
         String[] words = beforeLastSpace.trim().toLowerCase().split("\\s+");
-        if (words.length >= 2 && words[1].replaceFirst("^-+", "").equals("jarvis")) {
-            String[] options = words.length == 2 ? JARVIS_OPTIONS
-                    : words.length == 3 && words[2].replaceFirst("^-+", "").equals("voz") ? JARVIS_VOICE_OPTIONS : null;
+        int at = isJarvis(words[0]) ? 0 : words.length >= 2 && words[0].equals("ai") && isJarvis(words[1]) ? 1 : -1;
+        if (at >= 0) {
+            String[] options = words.length == at + 1 ? JARVIS_OPTIONS
+                    : words.length == at + 2 && words[at + 1].replaceFirst("^-+", "").equals("voz") ? JARVIS_VOICE_OPTIONS : null;
             if (options == null) return;
 
             String bare = typed.replaceFirst("^-+", "");

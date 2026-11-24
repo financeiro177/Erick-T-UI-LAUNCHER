@@ -31,7 +31,7 @@ import ohi.andre.consolelauncher.tuils.Tuils;
 
 /**
  * "t-lau -config -default": walks through what the launcher needs to work fully. Each step opens the
- * right screen with one line of instruction and waits for "ok"; a step already in place is skipped.
+ * right screen with one line of instruction and waits for "ok", including the steps already in place.
  * The terminal stays redirected here until the last step, "sair" or "pular" through the end.
  */
 public class TlauSetup extends RedirectCommand {
@@ -219,7 +219,7 @@ public class TlauSetup extends RedirectCommand {
     /** Called by the command. Returns false when there was nothing to do. */
     public boolean begin(MainPack pack) {
         Context c = pack.context;
-        say(c, "t-lau: vou abrir cada ajuste. Faça o que a linha pede, volte aqui e digite ok. (pular = próximo, sair = parar)");
+        say(c, "t-lau: vou abrir um ajuste por vez e só sigo para o próximo quando você digitar ok. (pular = próximo, sair = parar)");
 
         if (!advance(c)) {
             say(c, report(c));
@@ -230,21 +230,18 @@ public class TlauSetup extends RedirectCommand {
         return true;
     }
 
-    /** Moves to the next step that is not in place and opens it. False when there is none left. */
+    /** Opens the next step, even one already in place (the user confirms each with "ok"). False when none is left. */
     private boolean advance(Context c) {
-        while (++index < steps.size()) {
-            Step s = steps.get(index);
-            if (s.done(c)) {
-                say(c, "[ok] " + s.name + " (já estava)");
-                continue;
-            }
+        if (++index >= steps.size()) return false;
 
-            retried = false;
-            say(c, "Passo " + (index + 1) + " de " + steps.size() + ": " + s.name + "\n  " + s.instruction);
-            s.open(c, false);
-            return true;
-        }
-        return false;
+        Step s = steps.get(index);
+        boolean done = s.done(c);
+        retried = false;
+
+        say(c, "Passo " + (index + 1) + " de " + steps.size() + ": " + s.name + "\n  "
+                + (done ? "Já está ativado. Confira na tela que abri e digite ok." : s.instruction + " Depois volte aqui e digite ok."));
+        s.open(c, done);
+        return true;
     }
 
     private void finish(ExecutePack pack) {

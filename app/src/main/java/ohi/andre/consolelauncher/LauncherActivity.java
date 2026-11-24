@@ -448,6 +448,16 @@ public class LauncherActivity extends AppCompatActivity implements Reloadable {
     protected void onResume() {
         super.onResume();
 
+        // while the Jarvis screen is on, it is the home screen: only its own exit brings the terminal back
+        if (ohi.andre.consolelauncher.managers.ai.JarvisActivity.active) {
+            try {
+                ohi.andre.consolelauncher.managers.ai.JarvisActivity.open(this);
+                overridePendingTransition(0, 0);
+            } catch (Exception e) {
+                ohi.andre.consolelauncher.managers.ai.JarvisActivity.active = false;
+            }
+        }
+
         // a saved mock location whose service died (update, force stop, system kill) is resumed here
         MockLocationService.ensureRunning(this);
 

@@ -69,7 +69,17 @@ public class JarvisActivity extends Activity {
 
     private int state = BOOT;
     private boolean micGranted, voiceAnswered, voiceOk, resumed, listening;
-    private boolean quit, leaveWhenDone;
+    private boolean quit, listenOnResume;
+
+    /**
+     * True while the Jarvis screen is "on": from the moment it opens until the user leaves with the button or by
+     * asking. While it is true the launcher sends the user back here, so this screen works as the home screen.
+     * It lives only in memory: if the app process dies, the terminal is the home screen again.
+     */
+    public static volatile boolean active;
+
+    /** Set by the tool Jarvis uses to close his own screen; obeyed when he finishes talking. */
+    public static volatile boolean exitRequested;
     private int silentRounds, turnId;
     private String network = "ok";
 
@@ -79,7 +89,7 @@ public class JarvisActivity extends Activity {
 
     public static void open(Context c) {
         Intent i = new Intent(c, JarvisActivity.class);
-        if (!(c instanceof Activity)) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
         c.startActivity(i);
     }
 
@@ -123,7 +133,8 @@ public class JarvisActivity extends Activity {
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        active = true;
+        exitRequested = false;
 
         erick = TlauUser.ERICK.equals(TlauUser.current(this));
         accent = erick ? 0xFF4FD8FF : 0xFF3DFF8F;
@@ -366,6 +377,11 @@ public class JarvisActivity extends Activity {
         }
         backdrop.color = c;
         backdrop.invalidate();
+
+        // the screen stays awake only while a conversation is going on; at rest it may turn off like any home screen
+        if (s == LISTENING || s == THINKING || s == SPEAKING) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         showMic();
         refreshData();
     }
@@ -490,12 +506,18 @@ public class JarvisActivity extends Activity {
     }
 
     private void listen() {
-        if (!resumed) {
-            // the screen was left in the middle of an answer; now that it is over, close
-            if (leaveWhenDone && !isFinishing()) finish();
+        if (isFinishing()) return;
+        if (exitRequested) {
+            leave();
             return;
         }
-        if (!micGranted || isFinishing()) return;
+        if (!resumed) {
+            // the screen is not in front (an app was opened, or the phone was locked): listen again when it comes back
+            listenOnResume = true;
+            setState(STANDBY);
+            return;
+        }
+        if (!micGranted) return;
 
         try {
             ensureRecognizer();
@@ -768,18 +790,20 @@ public class JarvisActivity extends Activity {
         }
         setState(STANDBY);
         network = "ok";
-        if (!resumed && leaveWhenDone && !isFinishing()) finish();
     }
 
     /** The user asked to leave (button, back key or the word "sair"): silence at once. */
     private void leave() {
+        active = false;
+        exitRequested = false;
         quit = true;
         finish();
     }
 
+    /** The back key does not close this screen: only [ SAIR ] or asking him does. */
     @Override
     public void onBackPressed() {
-        leave();
+        micText.setText("para sair: toque em [ SAIR ] ou peça a ele");
     }
 
     // ---- life cycle ----
@@ -797,9 +821,14 @@ public class JarvisActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
-        leaveWhenDone = false;
         main.postDelayed(tick, 15000);
-        if (state == BOOT) maybeStart();
+        if (state == BOOT) {
+            maybeStart();
+        } else if (listenOnResume && state == STANDBY && micGranted && AiConfig.hasKey(this)) {
+            listenOnResume = false;
+            silentRounds = 0;
+            listen();
+        }
     }
 
     @Override
@@ -809,18 +838,19 @@ public class JarvisActivity extends Activity {
         main.removeCallbacks(tick);
 
         // leaving the screen turns the microphone off, whatever the reason
+        boolean was = state == LISTENING;
         stopListening();
-        if (state == LISTENING) state = STANDBY;
+        if (was) {
+            turnId++;
+            listenOnResume = true;
+            setState(STANDBY);
+        }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        if (isChangingConfigurations() || isFinishing()) return;
-
-        // an answer that opened an app or a link is allowed to finish before the screen closes
-        if (state == THINKING || state == SPEAKING) leaveWhenDone = true;
-        else finish();
+        // nothing closes this screen but the user: it stays behind whatever was opened, like a home screen
     }
 
     @Override

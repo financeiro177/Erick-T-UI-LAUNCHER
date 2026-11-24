@@ -282,6 +282,7 @@
 
         <activity
             android:name=".managers.ai.JarvisActivity"
+            android:launchMode="singleTask"
             android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
             android:excludeFromRecents="true"
             android:exported="false"

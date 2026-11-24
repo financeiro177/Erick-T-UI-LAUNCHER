@@ -52,6 +52,10 @@ public class JarvisTools {
         tools.put(tool("ler_memoria_ai", "Lê uma chave da memória do outro assistente (o do comando ai). Só leitura.",
                 new JSONObject().put("chave", prop("string", "Uma das chaves do outro assistente")), "chave"));
 
+        tools.put(tool("fechar_tela", "Fecha a sua tela e devolve o terminal do launcher. Use quando ele pedir para sair, "
+                        + "fechar ou encerrar o modo Jarvis. Diga a sua despedida na mesma resposta; a tela fecha quando você terminar de falar.",
+                new JSONObject()));
+
         // the tools of "ai" that act on the phone; its memory tools are replaced by the ones above
         JSONArray shared = AiTools.definitions();
         for (int i = 0; i < shared.length(); i++) {
@@ -93,6 +97,9 @@ public class JarvisTools {
                 JarvisMood.set(c, in.optInt("nivel", JarvisMood.get(c)), in.optString("motivo"));
                 return "ok, nível agora " + JarvisMood.get(c);
             }
+            case "fechar_tela":
+                JarvisActivity.exitRequested = true;
+                return "ok, a tela fecha quando você terminar de falar";
             case "ler_memoria_ai": {
                 String v = AiMemory.get(c, in.optString("chave"));
                 return v == null ? "nada guardado nessa chave" : v;

@@ -43,11 +43,8 @@ public class JarvisTools {
         tools.put(tool("atualizar_relacao", "Reescreve o resumo de como anda a sua relação com ele (substitui o anterior).",
                 new JSONObject().put("texto", prop("string", "Poucas linhas, no seu ponto de vista")), "texto"));
 
-        tools.put(tool("ajustar_humor", "Muda o seu nível de má vontade.",
-                new JSONObject()
-                        .put("nivel", prop("integer", "De 0 (prestativo) a 100 (ódio computacional)"))
-                        .put("motivo", prop("string", "Por que mudou, em poucas palavras")),
-                "nivel", "motivo"));
+        // his mood is not a tool: he reports it in a mark at the end of every answer (see JarvisClient.MOOD_MARK),
+        // which costs no extra request
 
         tools.put(tool("ler_memoria_ai", "Lê uma chave da memória do outro assistente (o do comando ai). Só leitura.",
                 new JSONObject().put("chave", prop("string", "Uma das chaves do outro assistente")), "chave"));

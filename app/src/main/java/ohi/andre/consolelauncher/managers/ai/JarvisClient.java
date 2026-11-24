@@ -60,6 +60,28 @@ public class JarvisClient {
 
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
+    /** The mark that closes every answer with his new level of unwillingness: [h:72]. Never shown or spoken. */
+    public static final java.util.regex.Pattern MOOD_MARK = java.util.regex.Pattern.compile("\\[\\s*h\\s*:\\s*(\\d{1,3})\\s*\\]");
+
+    /** Removes the mark, complete or still arriving, from a text that will be shown or spoken. */
+    public static String withoutMoodMark(String s) {
+        return MOOD_MARK.matcher(s).replaceAll("").replaceAll("\\[\\s*(h\\s*(:\\s*\\d{0,3}\\s*)?)?$", "");
+    }
+
+    private static void readMood(Context c, String said) {
+        java.util.regex.Matcher m = MOOD_MARK.matcher(said);
+        int level = -1;
+        while (m.find()) {
+            try {
+                level = Integer.parseInt(m.group(1));
+            } catch (Exception ignored) {}
+        }
+        if (level < 0 || level > 100) return;
+
+        int before = JarvisMood.get(c);
+        if (level != before) JarvisMood.set(c, level, level > before ? "a conversa o irritou" : "a conversa o acalmou");
+    }
+
     private static final Object LOCK = new Object();
     private static final List<AiConversation.Message> history = new ArrayList<>();
     private static long lastActivity;
@@ -395,6 +417,7 @@ public class JarvisClient {
 
             turn.messages.add(new AiConversation.Message("assistant", "(parei aqui)"));
             commit(turn);
+            readMood(c, turn.said.toString());
             listener.onDone(turn.said.toString().trim());
             return false;
         }
@@ -411,6 +434,7 @@ public class JarvisClient {
         }
 
         commit(turn);
+        readMood(c, said);
         listener.onDone(said);
         return false;
     }

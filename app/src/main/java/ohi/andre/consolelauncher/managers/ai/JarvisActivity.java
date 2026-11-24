@@ -720,7 +720,7 @@ public class JarvisActivity extends Activity {
     }
 
     private static String clean(String s) {
-        return s.replaceAll("[*_#`]+", "").replaceAll("[ \\t]+", " ").trim();
+        return JarvisClient.withoutMoodMark(s).replaceAll("[*_#`]+", "").replaceAll("[ \\t]+", " ").trim();
     }
 
     /**

@@ -64,10 +64,10 @@
     <string name="output_usedefapp">You can use \"apps -default_app\" instead</string>
 
     <!-- tui folder not found -->
-    <string name="tuinotfound_app">Your apps preferences couldn\'t be loaded because your \"t-ui\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
-    <string name="tuinotfound_rss">Your rss preferences couldn\'t be loaded because your \"t-ui\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
-    <string name="tuinotfound_notifications">Your notifications preferences couldn\'t be loaded because your \"t-ui\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
-    <string name="tuinotfound_xmlprefs">Your xml preferences couldn\'t be loaded because your \"t-ui\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
+    <string name="tuinotfound_app">Your apps preferences couldn\'t be loaded because your \"T-Lau\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
+    <string name="tuinotfound_rss">Your rss preferences couldn\'t be loaded because your \"T-Lau\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
+    <string name="tuinotfound_notifications">Your notifications preferences couldn\'t be loaded because your \"T-Lau\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
+    <string name="tuinotfound_xmlprefs">Your xml preferences couldn\'t be loaded because your \"T-Lau\" folder is not readable at the moment (you should try to use the command \"restart\")</string>
 
     <!-- hints -->
     <string-array name="hints">
@@ -166,12 +166,12 @@
         \n\nExample:
         \n$ help exit
     </string>
-    <string name="help_tuixt_exit">Exit from tuixt</string>
+    <string name="help_tuixt_exit">Exit from lauxt</string>
     <string name="help_tuixt_save">Save changes</string>
     <string name="tuixt_back_pressed">You pressed the back key</string>
     <string name="tuixt_saved">Saved</string>
     <string name="tuixt_reading">Reading</string>
-    <string name="tuixt_label">TUIXT</string>
+    <string name="tuixt_label">LAUXT</string>
     <string name="tuixt_error">This file is too big, consider opening it with an other text editor</string>
 
     <!-- phone -->
@@ -332,15 +332,15 @@
         \n$ time [index] (index means the index of the desired time_format</string>
     <string name="help_tuixt">Open the text editor.
         \n\nUsage:
-        \n$ tuixt [textFile]
+        \n$ lauxt [textFile]
     </string>
     <string name="help_tui">-rm -> uninstall T-Lau
         \n-about -> show info about the developer and the current version
-        \n-reset -> removes the t-ui folder and resets default settings (restart required)
+        \n-reset -> removes the T-Lau folder and resets default settings (restart required)
         \n-log [fileName] -> log the text on screen to the file
         \n-priority [command] [int] -> set the priority of the selected command
         \n-sourcecode -> open the GitHub page
-        \n-folder -> print the path of the t-ui folder</string>
+        \n-folder -> print the path of the T-Lau folder</string>
     <string name="help_tuinotes">-add [line] [text] -> add a new note at the specified line (the note will be appended if line is omitted)
         \n-rm [line] -> remove the note at the specified line
         \n-clear -> remove all the notes</string>

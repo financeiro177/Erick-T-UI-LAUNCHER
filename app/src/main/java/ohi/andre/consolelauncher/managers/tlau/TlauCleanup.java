@@ -43,7 +43,7 @@ public class TlauCleanup {
 
                         String n = f.getName().toLowerCase();
                         boolean installer = (n.startsWith("app-fdroid-debug") && n.endsWith(".apk"))
-                                || (n.startsWith("tui-launcher-apk") && n.endsWith(".zip"));
+                                || ((n.startsWith("tui-launcher-apk") || n.startsWith("t-lau-apk")) && n.endsWith(".zip"));
                         if (installer && f.delete()) removed++;
                     }
 

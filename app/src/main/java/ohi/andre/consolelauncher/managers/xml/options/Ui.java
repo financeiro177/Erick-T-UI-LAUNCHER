@@ -41,7 +41,7 @@ public enum Ui implements XMLPrefsSave {
 
         @Override
         public String info() {
-            return "If false, the default t-ui font (\"Lucida Console\") will be used for all texts";
+            return "If false, the default T-Lau font (\"Lucida Console\") will be used for all texts";
         }
     },
     ram_size {
@@ -377,7 +377,7 @@ public enum Ui implements XMLPrefsSave {
 
         @Override
         public String info() {
-            return "If true, t-ui will run in fullscreen mode";
+            return "If true, T-Lau will run in fullscreen mode";
         }
     },
     device_index {

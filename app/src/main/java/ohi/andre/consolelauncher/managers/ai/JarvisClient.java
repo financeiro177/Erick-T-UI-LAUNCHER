@@ -105,13 +105,13 @@ public class JarvisClient {
     /** The cheapest model is the default here too; another one lasts until the conversation of Jarvis ends. */
     public static String model() {
         synchronized (LOCK) {
-            return modelOverride != null ? modelOverride : AiConfig.defaultModel();
+            return modelOverride != null ? modelOverride : AiConfig.defaultJarvisModel();
         }
     }
 
     public static void setModel(String model) {
         synchronized (LOCK) {
-            modelOverride = AiConfig.defaultModel().equals(model) ? null : model;
+            modelOverride = AiConfig.defaultJarvisModel().equals(model) ? null : model;
         }
     }
 
@@ -182,6 +182,7 @@ public class JarvisClient {
     /** fromNotice: the turn was started by a trigger the user answered, not by something he said. */
     public static void ask(Context context, String phrase, boolean fromNotice, final Listener listener) {
         final Context c = context.getApplicationContext();
+        AiConfig.load(c);
 
         final String key = AiConfig.key(c);
         if (key == null) {

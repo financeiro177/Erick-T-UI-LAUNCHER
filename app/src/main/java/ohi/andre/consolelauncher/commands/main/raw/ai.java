@@ -55,7 +55,7 @@ public class ai implements CommandAbstraction {
             String[] words = line.split("\\s+");
             String first = words[0].toLowerCase(Locale.ROOT);
             boolean alone = words.length == 1 && FORGOTTEN_DASH.contains(" " + first + " ");
-            boolean withValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + first + " ")
+            boolean withValue = words.length == 2 && " limite ciclo aviso model padrao ".contains(" " + first + " ")
                     && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
             boolean memoryRm = words.length >= 3 && (first.equals("memory") || first.equals("memoria"))
                     && words[1].replace("-", "").equalsIgnoreCase("rm");
@@ -82,6 +82,9 @@ public class ai implements CommandAbstraction {
                     return aviso(c, rest);
                 case "-model":
                     return model(c, rest);
+                case "-padrao":
+                case "-padrão":
+                    return padrao(c, rest, false);
                 case "-key":
                     return key(c);
                 case "-memory":
@@ -105,9 +108,9 @@ public class ai implements CommandAbstraction {
         return chat(c, line);
     }
 
-    private static final String FORGOTTEN_DASH = " custo fim novo limite ciclo aviso model memory memoria key ";
+    private static final String FORGOTTEN_DASH = " custo fim novo limite ciclo aviso model padrao memory memoria key ";
 
-    private static final String JARVIS_OPTIONS = " voz memory memoria humor model modelo persona fim acesso bloqueio gatilhos quieto log ";
+    private static final String JARVIS_OPTIONS = " padrao voz memory memoria humor model modelo persona fim acesso bloqueio gatilhos quieto log ";
 
     // ---- jarvis: the voice assistant, a full screen of its own ----
 
@@ -196,17 +199,20 @@ public class ai implements CommandAbstraction {
                         + JarvisMood.baseline() + "%." + (why.length() > 0 ? "\núltimo motivo: " + why : "")
                         + "\nEle mesmo muda isso durante a conversa, e o valor volta devagar ao normal.");
             }
+            case "padrao":
+            case "padrão":
+                return padrao(c, arg, true);
             case "model":
             case "modelo": {
                 if (arg.length() == 0) {
                     return say(c, "jarvis: modelo = " + JarvisClient.model().replace("claude-", "")
-                            + "\nTrocar: ai -jarvis -model sonnet (vale até a conversa dele acabar; depois volta ao haiku)");
+                            + "\nTrocar: ai -jarvis -model sonnet (vale até a conversa dele acabar; depois volta ao padrão; mudar o padrão: ai -jarvis -padrao)");
                 }
                 String m = AiConfig.resolveModel(arg);
                 if (m == null) return say(c, "jarvis: modelo desconhecido. Use haiku, sonnet ou opus.");
                 JarvisClient.setModel(m);
-                return say(c, m.equals(AiConfig.defaultModel()) ? "jarvis: modelo = " + m + " (o padrão)"
-                        : "jarvis: modelo = " + m + " só nesta conversa dele; ao encerrar volta ao haiku");
+                return say(c, m.equals(AiConfig.defaultJarvisModel()) ? "jarvis: modelo = " + m + " (o padrão)"
+                        : "jarvis: modelo = " + m + " só nesta conversa dele; ao encerrar volta ao " + AiConfig.defaultJarvisModel().replace("claude-", ""));
             }
             case "persona": {
                 if (argLower.equals("-rm") || argLower.equals("rm")) {
@@ -439,6 +445,22 @@ public class ai implements CommandAbstraction {
         AiConfig.setModel(c, m);
         return say(c, m.equals(AiConfig.defaultModel()) ? "ai: modelo = " + m + " (o padrão)"
                 : "ai: modelo = " + m + " só nesta conversa; ao encerrar volta ao " + AiConfig.defaultModel().replace("claude-", ""));
+    }
+
+    // "ai -padrao [modelo]": the model used when a conversation starts (the one it goes back to afterwards)
+    static String padrao(Context c, String rest, boolean jarvis) {
+        String who = jarvis ? "jarvis" : "ai";
+        AiConfig.load(c);
+        String current = (jarvis ? AiConfig.defaultJarvisModel() : AiConfig.defaultModel()).replace("claude-", "");
+        if (rest.length() == 0) {
+            return say(c, who + ": modelo padrão = " + current + "\nMudar: " + (jarvis ? "ai -jarvis -padrao opus" : "ai -padrao sonnet")
+                    + "  (haiku, sonnet ou opus; haiku é o mais barato)");
+        }
+        String m = AiConfig.resolveModel(rest);
+        if (m == null) return say(c, who + ": modelo desconhecido. Use haiku, sonnet ou opus.");
+        AiConfig.setDefault(c, jarvis, m);
+        return say(c, who + ": o padrão agora é " + m.replace("claude-", "") + ". Vale a partir da próxima conversa"
+                + (m.equals(AiConfig.HAIKU) ? " (o mais barato)." : " e custa mais que o haiku; veja ai -custo."));
     }
 
     // "ai -memory" lists what the assistant keeps; "ai -memory -rm chave" forgets one item

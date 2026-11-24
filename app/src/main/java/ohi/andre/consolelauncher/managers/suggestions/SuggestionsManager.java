@@ -573,7 +573,7 @@ public class SuggestionsManager {
         // "-jarvis" typed alone opens the voice assistant; its options are suggested like the ones of "ai -jarvis"
         if (beforeLastSpace.length() == 0 && lastWord.length() > 0
                 && ("-jarvis".startsWith(lastWord.toLowerCase()) || "jarvis".startsWith(lastWord.toLowerCase()))) {
-            suggestionList.add(new Suggestion(beforeLastSpace, "-jarvis", clickToLaunch, 0));
+            suggestionList.add(new Suggestion(beforeLastSpace, "-jarvis", false, 0));
             // typed with the "-", nothing else can be meant; without it, apps and commands are suggested too
             if (lastWord.startsWith(Tuils.MINUS)) return suggestionList;
         }
@@ -863,12 +863,20 @@ public class SuggestionsManager {
 
     // options of the "ai" command. Only right after "ai" and only while the word starts with "-":
     // as soon as a normal sentence begins, nothing is suggested.
-    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key", "-jarvis"};
-    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory", "-jarvis"};
+    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-padrao", "-memory", "-key", "-jarvis"};
+    // runs on tap only what has nothing after it; anything with more options (or a value) is only written
+    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo"};
 
-    private static final String[] JARVIS_OPTIONS = {"-voz", "-memory", "-humor", "-model", "-persona", "-acesso", "-bloqueio", "-gatilhos", "-quieto", "-log", "-fim"};
-    private static final String[] JARVIS_VOICE_OPTIONS = {"-teste", "-velocidade", "-tom", "-padrao"};
-    private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao", "-acesso", "-bloqueio", "-gatilhos", "-log"};
+    private static final String[] JARVIS_OPTIONS = {"-padrao", "-voz", "-memory", "-humor", "-model", "-persona", "-acesso", "-bloqueio", "-gatilhos", "-quieto", "-log", "-fim"};
+    // second level of "ai -jarvis <option>": option name -> its own options
+    private static final String[][] JARVIS_SUB = {
+            {"voz", "-teste", "-velocidade", "-tom", "-padrao"},
+            {"memory", "-rm", "-limpar"},
+            {"persona", "-rm", "-status"},
+            {"acesso", "-status"},
+            {"bloqueio", "-rm", "-padrao"},
+            {"gatilhos", "-rm", "-off", "-on"}};
+    private static final String[] JARVIS_RUN_ON_CLICK = {"-fim", "-log", "-teste", "-status"};
 
     private static final String[] LEMBRETE_OPTIONS = {"-ls", "-rm", "-teste"};
     private static final String[] LEMBRETE_RUN_ON_CLICK = {"-ls", "-teste"};
@@ -901,8 +909,16 @@ public class SuggestionsManager {
         String[] words = beforeLastSpace.trim().toLowerCase().split("\\s+");
         int at = isJarvis(words[0]) ? 0 : words.length >= 2 && words[0].equals("ai") && isJarvis(words[1]) ? 1 : -1;
         if (at >= 0) {
-            String[] options = words.length == at + 1 ? JARVIS_OPTIONS
-                    : words.length == at + 2 && words[at + 1].replaceFirst("^-+", "").equals("voz") ? JARVIS_VOICE_OPTIONS : null;
+            String[] options = null;
+            if (words.length == at + 1) {
+                options = JARVIS_OPTIONS;
+            } else if (words.length == at + 2) {
+                String name = words[at + 1].replaceFirst("^-+", "");
+                if (name.equals("memoria")) name = "memory";
+                for (String[] sub : JARVIS_SUB) {
+                    if (sub[0].equals(name)) options = java.util.Arrays.copyOfRange(sub, 1, sub.length);
+                }
+            }
             if (options == null) return;
 
             String bare = typed.replaceFirst("^-+", "");

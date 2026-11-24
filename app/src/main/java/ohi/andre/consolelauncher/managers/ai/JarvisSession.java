@@ -53,6 +53,7 @@ public class JarvisSession {
     public static volatile boolean exitRequested;
 
     public static synchronized JarvisSession get(Context c) {
+        AiConfig.load(c.getApplicationContext());
         if (instance == null) instance = new JarvisSession(c.getApplicationContext());
         return instance;
     }

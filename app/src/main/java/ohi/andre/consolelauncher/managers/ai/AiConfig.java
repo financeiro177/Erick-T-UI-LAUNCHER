@@ -59,16 +59,42 @@ public class AiConfig {
     /** The cheapest model is always the default; another one only lasts while the conversation is open. */
     public static String model(Context c) {
         String chosen = AiConversation.modelOverride();
-        return chosen != null ? chosen : HAIKU;
+        load(c);
+        return chosen != null ? chosen : aiDefault;
+    }
+
+    // The default of each assistant. Haiku until the user changes it ("ai -padrao", "ai -jarvis -padrao"); kept in memory
+    // too because some callers have no Context. load() refreshes them from the saved settings.
+    private static volatile String aiDefault = HAIKU, jarvisDefault = HAIKU;
+
+    private static String saved(Context c, String key) {
+        String m = prefs(c).getString(key, HAIKU);
+        return m != null && m.startsWith("claude-") ? m : HAIKU;
+    }
+
+    public static void load(Context c) {
+        aiDefault = saved(c, "default_ai");
+        jarvisDefault = saved(c, "default_jarvis");
     }
 
     public static String defaultModel() {
-        return HAIKU;
+        return aiDefault;
+    }
+
+    public static String defaultJarvisModel() {
+        return jarvisDefault;
+    }
+
+    public static void setDefault(Context c, boolean jarvis, String model) {
+        prefs(c).edit().putString(jarvis ? "default_jarvis" : "default_ai", model).apply();
+        load(c);
+        if (jarvis) JarvisClient.setModel(model); else AiConversation.setModelOverride(null);
     }
 
     /** Valid until the conversation ends (ai -fim, ai -novo, 30 min idle or the app closing). */
     public static void setModel(Context c, String model) {
-        AiConversation.setModelOverride(HAIKU.equals(model) ? null : model);
+        load(c);
+        AiConversation.setModelOverride(aiDefault.equals(model) ? null : model);
     }
 
     /** The lines of "ai -model" and "t-lau -config -ia -modelo": what exists and what it costs. */

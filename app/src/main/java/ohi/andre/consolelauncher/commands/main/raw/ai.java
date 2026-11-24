@@ -49,6 +49,19 @@ public class ai implements CommandAbstraction {
         String line = pack.getString().trim();
         if (line.length() == 0) return c.getString(helpRes());
 
+        // an option typed without the "-" works the same: "ai custo", "ai limite 50", "ai memory rm chave".
+        // Only when the line is nothing but the option (and its value), so a real sentence is never mistaken for one.
+        if (!line.startsWith("-")) {
+            String[] words = line.split("\\s+");
+            String first = words[0].toLowerCase(Locale.ROOT);
+            boolean alone = words.length == 1 && FORGOTTEN_DASH.contains(" " + first + " ");
+            boolean withValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + first + " ")
+                    && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
+            boolean memoryRm = words.length >= 3 && (first.equals("memory") || first.equals("memoria"))
+                    && words[1].replace("-", "").equalsIgnoreCase("rm");
+            if (alone || withValue || memoryRm) line = "-" + line;
+        }
+
         if (line.startsWith("-")) {
             String[] parts = line.split("\\s+", 2);
             String opt = parts[0].toLowerCase(Locale.ROOT);
@@ -82,25 +95,17 @@ public class ai implements CommandAbstraction {
             }
         }
 
-        // "ai custo", "ai limite 50": an option typed without "-". Says so instead of spending a request on it.
-        String[] words = line.split("\\s+");
-        String firstWord = words[0].toLowerCase(Locale.ROOT);
-        if (firstWord.equals("jarvis") && (words.length == 1 || JARVIS_OPTIONS.contains(" " + words[1].toLowerCase(Locale.ROOT).replace("-", "") + " "))) {
-            return jarvis(c, line.substring(words[0].length()).trim());
-        }
-
-        boolean optionAlone = words.length == 1 && FORGOTTEN_DASH.contains(" " + firstWord + " ");
-        boolean optionWithValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + firstWord + " ")
-                && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
-        if (optionAlone || optionWithValue) {
-            return say(c, "ai: faltou o \"-\". Para essa opção use: ai -" + line.toLowerCase(Locale.ROOT)
-                    + "\n(se era mesmo uma pergunta, escreva com mais palavras)");
+        if (line.toLowerCase(Locale.ROOT).matches("jarvis(\\s.*)?")) {
+            String[] words = line.split("\\s+");
+            if (words.length == 1 || JARVIS_OPTIONS.contains(" " + words[1].toLowerCase(Locale.ROOT).replace("-", "") + " ")) {
+                return jarvis(c, line.substring(words[0].length()).trim());
+            }
         }
 
         return chat(c, line);
     }
 
-    private static final String FORGOTTEN_DASH = " custo fim limite ciclo aviso model memory memoria key ";
+    private static final String FORGOTTEN_DASH = " custo fim novo limite ciclo aviso model memory memoria key ";
 
     private static final String JARVIS_OPTIONS = " voz memory memoria humor model modelo persona fim ";
 
@@ -376,8 +381,9 @@ public class ai implements CommandAbstraction {
 
     // "ai -memory" lists what the assistant keeps; "ai -memory -rm chave" forgets one item
     private static String memory(Context c, String rest) {
-        if (rest.toLowerCase(Locale.ROOT).startsWith("-rm")) {
-            String k = rest.substring(3).trim();
+        String restLower = rest.toLowerCase(Locale.ROOT);
+        if (restLower.startsWith("-rm") || restLower.startsWith("rm ") || restLower.equals("rm")) {
+            String k = rest.substring(restLower.startsWith("-rm") ? 3 : 2).trim();
             if (k.length() == 0) return say(c, "ai: informe a chave. Exemplo: ai -memory -rm contabilidade");
             return say(c, AiMemory.remove(c, k) ? "ai: esquecido: " + AiMemory.normalize(k) : "ai: não há essa chave na memória.");
         }

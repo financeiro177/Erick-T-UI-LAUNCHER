@@ -49,6 +49,16 @@ public class lembrete implements CommandAbstraction {
         String line = pack.getString().trim();
         if (line.length() == 0) return c.getString(helpRes());
 
+        // the options also work without the "-": "lembrete ls", "lembrete teste", "lembrete rm 3"
+        {
+            String[] w = line.split("\\s+");
+            String first = w[0].toLowerCase(Locale.ROOT);
+            if ((w.length == 1 && (first.equals("ls") || first.equals("teste")))
+                    || (w.length == 2 && first.equals("rm") && w[1].matches("[0-9]+"))) {
+                line = "-" + line;
+            }
+        }
+
         if (line.startsWith("-")) {
             String[] parts = line.split("\\s+", 2);
             String opt = parts[0].toLowerCase(Locale.ROOT);

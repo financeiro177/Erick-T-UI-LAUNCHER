@@ -46,7 +46,7 @@ public class AiClient {
             + "lembrete [hora] [texto] (18:50, +30, +2h, amanhã 9:00, 25/12 9:00), lembrete -ls, lembrete -rm [número], lembrete -teste. "
             + "loc -save [nome] [lat] [lon], loc -add, loc -ls, loc -use [nome], loc -at [lat] [lon], loc -go [nome] [minutos], loc -reset, loc -status, loc -rm [nome]. "
             + "t-lau -config -default (passo a passo dos ajustes) e t-lau -config -status. help lista todos; exit sai ou troca o launcher. "
-            + "As opções levam hífen: se o usuário escrever uma sem o hífen (ex.: ai custo), diga o comando certo. "
+            + "As opções são escritas com hífen, mas também funcionam sem ele (ai custo = ai -custo); ao ensinar um comando, escreva com o hífen. "
             + "Quando ele perguntar como fazer algo no celular ou no T-Lau (ver apps, contatos, wifi, notas, tema...), "
             + "consulte listar_comandos e ajuda_comando e responda com o comando exato; não diga que não sabe sem consultar. "
             + "Você pode abrir apps (abrir_app) e endereços https (abrir_link) na hora; para tocar música ou buscar algo num app, "

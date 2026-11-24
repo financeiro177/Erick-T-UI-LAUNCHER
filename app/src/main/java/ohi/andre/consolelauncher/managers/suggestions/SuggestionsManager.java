@@ -36,6 +36,7 @@ import ohi.andre.consolelauncher.commands.CommandTuils;
 import ohi.andre.consolelauncher.commands.main.MainPack;
 import ohi.andre.consolelauncher.commands.main.Param;
 import ohi.andre.consolelauncher.commands.main.raw.ai;
+import ohi.andre.consolelauncher.commands.main.raw.lembrete;
 import ohi.andre.consolelauncher.commands.main.specific.ParamCommand;
 import ohi.andre.consolelauncher.commands.main.specific.PermanentSuggestionCommand;
 import ohi.andre.consolelauncher.managers.AliasManager;
@@ -570,9 +571,11 @@ public class SuggestionsManager {
         if (suggestTlau(suggestionList, beforeLastSpace, lastWord)) return suggestionList;
 
         // "-jarvis" typed alone opens the voice assistant; its options are suggested like the ones of "ai -jarvis"
-        if (beforeLastSpace.length() == 0 && lastWord.startsWith(Tuils.MINUS) && "-jarvis".startsWith(lastWord.toLowerCase())) {
+        if (beforeLastSpace.length() == 0 && lastWord.length() > 0
+                && ("-jarvis".startsWith(lastWord.toLowerCase()) || "jarvis".startsWith(lastWord.toLowerCase()))) {
             suggestionList.add(new Suggestion(beforeLastSpace, "-jarvis", clickToLaunch, 0));
-            return suggestionList;
+            // typed with the "-", nothing else can be meant; without it, apps and commands are suggested too
+            if (lastWord.startsWith(Tuils.MINUS)) return suggestionList;
         }
         if (beforeLastSpace.length() > 0 && isJarvis(beforeLastSpace.toLowerCase().split("\\s+")[0])) {
             suggestAiOptions(suggestionList, beforeLastSpace, lastWord);
@@ -621,6 +624,8 @@ public class SuggestionsManager {
 
                     if (cmd.cmd instanceof ai) {
                         suggestAiOptions(suggestionList, beforeLastSpace, null);
+                    } else if (cmd.cmd instanceof lembrete) {
+                        suggestLembreteOptions(suggestionList, beforeLastSpace, null);
                     } else if (cmd.mArgs != null && cmd.mArgs.length > 0 && cmd.cmd instanceof ParamCommand && cmd.nArgs >= 1 && cmd.mArgs[0] instanceof Param && ((Param) cmd.mArgs[0]).args().length + 1 == cmd.nArgs) {
 //                        nothing
                     } else {
@@ -674,6 +679,8 @@ public class SuggestionsManager {
 
                     if (cmd.cmd instanceof ai) {
                         suggestAiOptions(suggestionList, beforeLastSpace, lastWord);
+                    } else if (cmd.cmd instanceof lembrete) {
+                        suggestLembreteOptions(suggestionList, beforeLastSpace, lastWord);
                     } else if(cmd.cmd instanceof ParamCommand && (cmd.mArgs == null || cmd.mArgs.length == 0 || cmd.mArgs[0] instanceof String)) {
                         suggestParams(pack, suggestionList, (ParamCommand) cmd.cmd, beforeLastSpace , lastWord);
                     } else suggestArgs(pack, cmd.nextArg(), suggestionList, lastWord, beforeLastSpace );
@@ -863,6 +870,24 @@ public class SuggestionsManager {
     private static final String[] JARVIS_VOICE_OPTIONS = {"-teste", "-velocidade", "-tom", "-padrao"};
     private static final String[] JARVIS_RUN_ON_CLICK = {"-voz", "-memory", "-humor", "-fim", "-teste", "-padrao"};
 
+    private static final String[] LEMBRETE_OPTIONS = {"-ls", "-rm", "-teste"};
+    private static final String[] LEMBRETE_RUN_ON_CLICK = {"-ls", "-teste"};
+
+    // options of "lembrete", only as its first word; found with or without the "-", shown with it
+    private void suggestLembreteOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
+        if (beforeLastSpace == null || beforeLastSpace.trim().contains(Tuils.SPACE)) return;
+
+        String typed = lastWord == null ? Tuils.EMPTYSTRING : lastWord.toLowerCase().replaceFirst("^-+", "");
+        for (String o : LEMBRETE_OPTIONS) {
+            if (!o.substring(1).startsWith(typed)) continue;
+
+            boolean run = false;
+            for (String r : LEMBRETE_RUN_ON_CLICK) if (r.equals(o)) run = true;
+
+            suggestions.add(new Suggestion(beforeLastSpace, o, run && clickToLaunch, 0));
+        }
+    }
+
     private static boolean isJarvis(String word) {
         return word.equals("-jarvis") || word.equals("jarvis");
     }
@@ -893,10 +918,11 @@ public class SuggestionsManager {
         }
 
         if (beforeLastSpace.trim().contains(Tuils.SPACE)) return;
-        if (typed.length() > 0 && !typed.startsWith(Tuils.MINUS)) return;
 
+        // options are found with or without the "-" typed, and always shown with it
+        String bareTyped = typed.replaceFirst("^-+", "");
         for (String o : AI_OPTIONS) {
-            if (!o.startsWith(typed)) continue;
+            if (!o.substring(1).startsWith(bareTyped)) continue;
 
             boolean run = false;
             for (String r : AI_RUN_ON_CLICK) if (r.equals(o)) run = true;

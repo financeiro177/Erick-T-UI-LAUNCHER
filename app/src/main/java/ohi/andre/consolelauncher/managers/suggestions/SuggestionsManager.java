@@ -846,8 +846,8 @@ public class SuggestionsManager {
 
     // options of the "ai" command. Only right after "ai" and only while the word starts with "-":
     // as soon as a normal sentence begins, nothing is suggested.
-    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key"};
-    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory"};
+    private static final String[] AI_OPTIONS = {"-novo", "-fim", "-custo", "-limite", "-ciclo", "-aviso", "-model", "-memory", "-key", "-jarvis"};
+    private static final String[] AI_RUN_ON_CLICK = {"-fim", "-custo", "-memory", "-jarvis"};
 
     private void suggestAiOptions(List<Suggestion> suggestions, String beforeLastSpace, String lastWord) {
         if (beforeLastSpace == null || beforeLastSpace.trim().contains(Tuils.SPACE)) return;

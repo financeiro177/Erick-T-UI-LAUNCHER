@@ -16,6 +16,11 @@ import ohi.andre.consolelauncher.managers.ai.AiConfig;
 import ohi.andre.consolelauncher.managers.ai.AiConversation;
 import ohi.andre.consolelauncher.managers.ai.AiMemory;
 import ohi.andre.consolelauncher.managers.ai.AiUsage;
+import ohi.andre.consolelauncher.managers.ai.JarvisClient;
+import ohi.andre.consolelauncher.managers.ai.JarvisMemory;
+import ohi.andre.consolelauncher.managers.ai.JarvisMood;
+import ohi.andre.consolelauncher.managers.ai.JarvisPersona;
+import ohi.andre.consolelauncher.managers.ai.JarvisVoice;
 
 /**
  * "ai": talks to the Claude API only when the user types it. Normal T-UI commands never reach the API.
@@ -30,6 +35,7 @@ import ohi.andre.consolelauncher.managers.ai.AiUsage;
  *   ai -model [name]         haiku / sonnet / opus
  *   ai -memory               what the assistant keeps (-rm key forgets one item)
  *   ai -key                  saves the key that is in the clipboard, then clears the clipboard
+ *   ai -jarvis               opens the voice assistant (its own screen, personality and memory)
  *
  * It is a plain CommandAbstraction (not a ParamCommand) so a free sentence can follow "ai".
  * The network call is asynchronous (AiClient); this method only decides what to do and returns null
@@ -68,6 +74,8 @@ public class ai implements CommandAbstraction {
                 case "-memory":
                 case "-memoria":
                     return memory(c, rest);
+                case "-jarvis":
+                    return jarvis(c, rest);
                 default:
                     // "-word" is taken as a mistyped option; anything else (e.g. "-5 + 3") is a normal phrase
                     if (opt.matches("-[a-zà-ú]+")) return say(c, "ai: opção desconhecida (" + opt + "). Digite ai para ver a ajuda.");
@@ -77,6 +85,10 @@ public class ai implements CommandAbstraction {
         // "ai custo", "ai limite 50": an option typed without "-". Says so instead of spending a request on it.
         String[] words = line.split("\\s+");
         String firstWord = words[0].toLowerCase(Locale.ROOT);
+        if (firstWord.equals("jarvis") && (words.length == 1 || JARVIS_OPTIONS.contains(" " + words[1].toLowerCase(Locale.ROOT).replace("-", "") + " "))) {
+            return jarvis(c, line.substring(words[0].length()).trim());
+        }
+
         boolean optionAlone = words.length == 1 && FORGOTTEN_DASH.contains(" " + firstWord + " ");
         boolean optionWithValue = words.length == 2 && " limite ciclo aviso model ".contains(" " + firstWord + " ")
                 && (words[1].matches("[0-9.,]+") || AiConfig.resolveModel(words[1]) != null);
@@ -89,6 +101,141 @@ public class ai implements CommandAbstraction {
     }
 
     private static final String FORGOTTEN_DASH = " custo fim limite ciclo aviso model memory memoria key ";
+
+    private static final String JARVIS_OPTIONS = " voz memory memoria humor model modelo persona fim ";
+
+    // ---- jarvis: the voice assistant, a full screen of its own ----
+
+    /**
+     * ai -jarvis                     opens the voice screen
+     * ai -jarvis -voz ...            voice of the answers
+     * ai -jarvis -memory [-rm key]   what Jarvis keeps about the user (-memory -limpar erases all)
+     * ai -jarvis -humor [0..100]     his unwillingness
+     * ai -jarvis -model [name]       model, only while his conversation lasts
+     * ai -jarvis -persona [-rm]      the personality text, read from the clipboard
+     * ai -jarvis -fim                ends his conversation (the memory stays)
+     * The inner options also work without the "-".
+     */
+    private static String jarvis(Context c, String rest) {
+        if (rest.length() == 0) {
+            try {
+                ohi.andre.consolelauncher.managers.ai.JarvisActivity.open(c);
+            } catch (Exception e) {
+                return say(c, "jarvis: não foi possível abrir a tela.");
+            }
+            return null;
+        }
+
+        String[] parts = rest.split("\\s+", 2);
+        String opt = parts[0].toLowerCase(Locale.ROOT).replace("-", "");
+        String arg = parts.length > 1 ? parts[1].trim() : "";
+        String argLower = arg.toLowerCase(Locale.ROOT);
+
+        switch (opt) {
+            case "voz": {
+                if (arg.length() == 0) {
+                    JarvisVoice.list(c);
+                    return null;
+                }
+                if (argLower.equals("teste")) {
+                    JarvisVoice.test(c);
+                    return null;
+                }
+                if (argLower.equals("padrao") || argLower.equals("padrão")) return say(c, JarvisVoice.useDefault(c));
+                if (argLower.startsWith("velocidade")) return say(c, JarvisVoice.setRate(c, arg.substring(10).trim(), false));
+                if (argLower.startsWith("tom")) return say(c, JarvisVoice.setRate(c, arg.substring(3).trim(), true));
+                try {
+                    return say(c, JarvisVoice.choose(c, Integer.parseInt(arg)));
+                } catch (NumberFormatException e) {
+                    return say(c, "jarvis: use ai -jarvis -voz para ver a lista e ai -jarvis -voz [número] para escolher.");
+                }
+            }
+            case "memory":
+            case "memoria": {
+                if (argLower.startsWith("-rm") || argLower.startsWith("rm ")) {
+                    String k = arg.substring(argLower.startsWith("-rm") ? 3 : 2).trim();
+                    if (k.length() == 0) return say(c, "jarvis: informe a chave. Exemplo: ai -jarvis -memory -rm comida favorita");
+                    return say(c, JarvisMemory.remove(c, k) ? "jarvis: esquecido: " + JarvisMemory.normalize(k) : "jarvis: não há essa chave.");
+                }
+                if (argLower.equals("-limpar") || argLower.equals("limpar")) {
+                    JarvisMemory.clear(c);
+                    return say(c, "jarvis: memória e resumo da relação apagados. Ele volta a não te conhecer.");
+                }
+
+                java.util.List<String> keys = JarvisMemory.keys(c);
+                StringBuilder b = new StringBuilder("== jarvis: memória (" + keys.size() + " de " + JarvisMemory.MAX_ITEMS + ") ==");
+                for (String k : keys) b.append('\n').append(k).append(" = ").append(JarvisMemory.get(c, k));
+                if (keys.isEmpty()) b.append("\n(vazia: ele ainda não guardou nada sobre você)");
+                String relation = JarvisMemory.relation(c);
+                b.append("\n\nrelação, nas palavras dele:\n").append(relation.length() == 0 ? "(ainda não escreveu nada)" : relation);
+                b.append("\n\n(esquecer um item: ai -jarvis -memory -rm chave; apagar tudo: ai -jarvis -memory -limpar)");
+                return say(c, b.toString());
+            }
+            case "humor": {
+                if (arg.length() > 0) {
+                    try {
+                        int v = Integer.parseInt(arg.replace("%", "").trim());
+                        if (v < 0 || v > 100) throw new NumberFormatException();
+                        JarvisMood.set(c, v, "o usuário mexeu no humor dele à força");
+                    } catch (NumberFormatException e) {
+                        return say(c, "jarvis: use um número de 0 a 100. Exemplo: ai -jarvis -humor 20");
+                    }
+                }
+                int mood = JarvisMood.get(c);
+                String why = JarvisMood.why(c);
+                return say(c, "jarvis: má vontade em " + mood + "% (" + JarvisMood.label(mood) + "); o normal de hoje é "
+                        + JarvisMood.baseline() + "%." + (why.length() > 0 ? "\núltimo motivo: " + why : "")
+                        + "\nEle mesmo muda isso durante a conversa, e o valor volta devagar ao normal.");
+            }
+            case "model":
+            case "modelo": {
+                if (arg.length() == 0) {
+                    return say(c, "jarvis: modelo = " + JarvisClient.model().replace("claude-", "")
+                            + "\nTrocar: ai -jarvis -model sonnet (vale até a conversa dele acabar; depois volta ao haiku)");
+                }
+                String m = AiConfig.resolveModel(arg);
+                if (m == null) return say(c, "jarvis: modelo desconhecido. Use haiku, sonnet ou opus.");
+                JarvisClient.setModel(m);
+                return say(c, m.equals(AiConfig.defaultModel()) ? "jarvis: modelo = " + m + " (o padrão)"
+                        : "jarvis: modelo = " + m + " só nesta conversa dele; ao encerrar volta ao haiku");
+            }
+            case "persona": {
+                if (argLower.equals("-rm") || argLower.equals("rm")) {
+                    return say(c, JarvisPersona.remove(c) ? "jarvis: personalidade apagada deste celular (volta a padrão)."
+                            : "jarvis: não havia personalidade guardada.");
+                }
+                if (argLower.equals("-status") || argLower.equals("status")) return say(c, JarvisPersona.status(c));
+                return persona(c);
+            }
+            case "fim":
+                JarvisClient.reset();
+                return say(c, "jarvis: conversa encerrada. A memória dele continua.");
+            default:
+                return say(c, "jarvis: opção desconhecida. Use: ai -jarvis (abre), -voz, -memory, -humor, -model, -persona, -fim");
+        }
+    }
+
+    // reads the personality from the clipboard, so the text never passes through the command line or the screen
+    private static String persona(Context c) {
+        try {
+            ClipboardManager cm = (ClipboardManager) c.getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipData data = cm == null ? null : cm.getPrimaryClip();
+            CharSequence text = data == null || data.getItemCount() == 0 ? null : data.getItemAt(0).coerceToText(c);
+            String t = text == null ? "" : text.toString().trim();
+
+            if (t.length() < JarvisPersona.MIN_CHARS) return say(c, JarvisPersona.status(c)
+                    + "\n(o que está copiado agora é curto demais para ser uma personalidade; nada mudou)");
+            if (t.startsWith("sk-ant-")) return say(c, "jarvis: isso parece a chave da IA, não a personalidade. Nada foi salvo.");
+
+            String error = JarvisPersona.importText(c, t);
+            if (error != null) return say(c, "jarvis: " + error + ". Nada foi salvo.");
+
+            JarvisClient.reset();
+            return say(c, "jarvis: personalidade salva (" + t.length() + " letras), só neste celular. Vale a partir da próxima conversa.");
+        } catch (Exception e) {
+            return say(c, "jarvis: não foi possível ler a área de transferência.");
+        }
+    }
 
     // ---- conversation ----
 

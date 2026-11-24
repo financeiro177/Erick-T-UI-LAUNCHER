@@ -41,6 +41,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- ai -jarvis: asked for only when that screen opens; the microphone is used only while it is open -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_MOCK_LOCATION"
         tools:ignore="MockLocation,ProtectedPermissions" />
 
@@ -277,6 +279,14 @@
         <service 
             android:name=".managers.notifications.NotificationMonitorService"
             android:exported="false" />
+
+        <activity
+            android:name=".managers.ai.JarvisActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize|keyboard|navigation"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
 
         <activity
             android:name=".tuils.stuff.FakeLauncherActivity"

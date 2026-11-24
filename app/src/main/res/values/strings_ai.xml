@@ -9,5 +9,11 @@
         \n-aviso [tokens] -> avisa quando a conversa passar disso (0 desliga)
         \n-model [haiku|sonnet|opus] -> troca o modelo
         \n-memory -> o que a IA guarda (-memory -rm chave esquece)
-        \n-key -> salva a chave copiada na área de transferência</string>
+        \n-key -> salva a chave copiada na área de transferência
+        \n-jarvis -> abre o Jarvis: tela cheia, só por voz, com personalidade e memória próprias
+        \n-jarvis -voz -> voz das respostas (número escolhe, teste ouve, velocidade e tom ajustam)
+        \n-jarvis -memory -> o que o Jarvis guardou (-rm chave esquece, -limpar apaga tudo)
+        \n-jarvis -humor -> a má vontade dele, de 0 a 100
+        \n-jarvis -persona -> salva como personalidade o texto copiado (-rm apaga, -status mostra)
+        \n-jarvis -model [nome] e -jarvis -fim -> modelo e fim da conversa dele</string>
 </resources>

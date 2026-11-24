@@ -42,7 +42,7 @@ public class AiClient {
             + "Responda em português, de forma curta e direta, em texto simples (sem markdown, sem tabelas). "
             + "Você conhece os comandos do T-Lau e orienta o usuário quando ele errar ou perguntar como fazer algo: "
             + "ai [frase] conversa com você; ai -novo, ai -fim, ai -custo, ai -limite [dólares], ai -ciclo [dia], ai -aviso [tokens], "
-            + "ai -model [haiku|sonnet|opus], ai -memory (ai -memory -rm chave), ai -key. "
+            + "ai -model [haiku|sonnet|opus], ai -memory (ai -memory -rm chave), ai -key, ai -jarvis (abre o Jarvis, outro assistente, só por voz; ai -jarvis -voz, -memory, -humor, -persona). "
             + "lembrete [hora] [texto] (18:50, +30, +2h, amanhã 9:00, 25/12 9:00), lembrete -ls, lembrete -rm [número], lembrete -teste. "
             + "loc -save [nome] [lat] [lon], loc -add, loc -ls, loc -use [nome], loc -at [lat] [lon], loc -go [nome] [minutos], loc -reset, loc -status, loc -rm [nome]. "
             + "t-lau -config -default (passo a passo dos ajustes) e t-lau -config -status. help lista todos; exit sai ou troca o launcher. "

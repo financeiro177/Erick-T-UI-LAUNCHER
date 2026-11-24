@@ -65,7 +65,7 @@ public class TlauUser extends RedirectCommand {
     /** The boot art of the current profile, with its caption. */
     public static String art(Context c) {
         boolean erick = ERICK.equals(current(c));
-        return (erick ? ART_E : ART_T) + (erick ? "[ E-LAU :: ERICK ]" : "[ T-LAU :: TEETSUUO LAUNCHER ]") + "\n\n";
+        return (erick ? ART_E : ART_T) + "\n" + (erick ? "[ E-LAU :: ERICK ]" : "[ T-LAU :: TEETSUUO LAUNCHER ]") + "\n\n";
     }
 
     /** Prints the profile now in use and its art. */

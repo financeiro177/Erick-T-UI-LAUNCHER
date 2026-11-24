@@ -61,7 +61,7 @@ public class JarvisTriggers {
 
     private static final String LIST = "gatilhos", OFF = "gatilhos_desligados", PENDING = "avisos",
             QUIET = "quieto_ate", LAST_NOTICE = "aviso_em", LAST_KIND = "aviso_tipo_", SNOOZE = "aviso_adiado_ate",
-            DAY = "dia_visto", LAST_TALK = "conversa_em", VERSION = "versao_vista", BUDGET_CYCLE = "gasto_avisado";
+            DAY = "dia_visto", MISSED_DAY = "sumico_dia", LAST_TALK = "conversa_em", VERSION = "versao_vista", BUDGET_CYCLE = "gasto_avisado";
 
     private static final long MIN_BETWEEN = 10L * 60 * 1000;          // between any two notices
     private static final long MIN_SAME_KIND = 2L * 60 * 60 * 1000;    // between two notices of the same built-in kind
@@ -245,9 +245,23 @@ public class JarvisTriggers {
     // ---- firing ----
 
     /** Something happened on the phone. Fires the built-in trigger of that kind and the ones Jarvis created for it. */
-    public static void event(Context context, String kind, String detail) {
+    public static void event(Context context, final String kind, final String detailOrNull) {
         final Context c = context.getApplicationContext();
-        if (detail == null) detail = "";
+
+        // some events come from system threads (the network one); everything from here on touches the screen
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        event(c, kind, detailOrNull);
+                    } catch (Exception ignored) {}
+                }
+            });
+            return;
+        }
+
+        String detail = detailOrNull == null ? "" : detailOrNull;
         long now = System.currentTimeMillis();
         SharedPreferences p = prefs(c);
 
@@ -549,8 +563,10 @@ public class JarvisTriggers {
                 if (seen.length() > 0) event(c, FIRST_OF_DAY, "");
             }
 
+            // once a day at most, after two days without a word
             long lastTalk = p.getLong(LAST_TALK, 0);
-            if (lastTalk > 0 && now - lastTalk > 48L * 60 * 60 * 1000) {
+            if (lastTalk > 0 && now - lastTalk > 48L * 60 * 60 * 1000 && !today.equals(p.getString(MISSED_DAY, ""))) {
+                p.edit().putString(MISSED_DAY, today).apply();
                 long days = (now - lastTalk) / (24L * 60 * 60 * 1000);
                 event(c, MISSED, days + " dias");
             }

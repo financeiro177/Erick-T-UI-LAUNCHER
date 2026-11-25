@@ -47,8 +47,8 @@ public class JarvisClient {
     private static final String VERSION = "2023-06-01";
     // A ceiling, not a target: spoken answers stay short by the persona rules. It must leave room for a tool call that carries
     // a long text (a message full of flourishes), or the call is cut off in the middle and nothing is left to run.
-    private static final int MAX_TOKENS = 2500;
-    private static final int MAX_STEPS = 24;   // moving around an app takes one request per look and per touch
+    private static final int MAX_TOKENS = 8000;
+    private static final int MAX_STEPS = 40;   // moving around an app takes one request per look and per touch
 
     private static final long INACTIVITY_MS = 30L * 60L * 1000L;
     private static final int HISTORY_MAX = 40;

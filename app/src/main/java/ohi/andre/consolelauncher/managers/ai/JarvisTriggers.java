@@ -237,7 +237,8 @@ public class JarvisTriggers {
             case FIRST_OF_DAY: return "é a primeira vez que ele pega o celular hoje";
             case MISSED: return "faz " + detail + " que ele não fala com você";
             case BUDGET: return "o gasto com a IA neste ciclo já passou de " + detail + " do limite";
-            case UPDATED: return "o launcher acabou de ser atualizado (você pode ter ganhado ou perdido alguma coisa)";
+            case UPDATED: return "o launcher acabou de ser atualizado" + (detail == null || detail.length() == 0 ? " (você pode ter ganhado ou perdido alguma coisa)"
+                    : ". O que mudou, escrito por quem fez a atualização:\n" + detail);
             default: return kind;
         }
     }
@@ -583,9 +584,24 @@ public class JarvisTriggers {
             long known = p.getLong(VERSION, 0);
             if (known != version) {
                 p.edit().putLong(VERSION, version).apply();
-                if (known != 0) event(c, UPDATED, "");
+                if (known != 0) event(c, UPDATED, releaseNotes(c));
             }
         } catch (Exception ignored) {}
+    }
+
+    /** What changed in this version, written by hand for each build in assets/jarvis-novidades.txt. */
+    private static String releaseNotes(Context c) {
+        try {
+            java.io.InputStream in = c.getAssets().open("jarvis-novidades.txt");
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[2048];
+            int n;
+            while ((n = in.read(buf)) > 0 && out.size() < 6000) out.write(buf, 0, n);
+            in.close();
+            return out.toString("UTF-8").trim();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /** Called when the user talks to Jarvis: the "days without talking" count starts again. */

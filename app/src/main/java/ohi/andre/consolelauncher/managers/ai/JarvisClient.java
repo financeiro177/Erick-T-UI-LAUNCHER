@@ -175,6 +175,7 @@ public class JarvisClient {
         final StringBuilder said = new StringBuilder();
         long lastContext;
         int steps;
+        boolean retriedEmpty;
     }
 
     // ---- request ----
@@ -439,7 +440,22 @@ public class JarvisClient {
         String said = turn.said.toString().trim();
         if (content.length() == 0) {
             if (turn.steps == 1) {
-                listener.onError("a API respondeu sem texto");
+                JarvisGuard.log(c, "resposta vazia da API (motivo: " + (stopReason.length() == 0 ? "nenhum" : stopReason) + ", modelo " + model + ")");
+                if ("refusal".equals(stopReason)) {
+                    // a refusal by the model itself: asking again the same way would only be refused again
+                    listener.onError("o modelo (" + model.replace("claude-", "") + ") recusou este pedido e não disse nada. "
+                            + "Tente dizer de outro jeito, explique o contexto num adendo, ou teste um modelo maior (ai -jarvis -model sonnet).");
+                    return false;
+                }
+                if (!turn.retriedEmpty) {
+                    // an empty answer that was not a refusal (cut short, nothing to say): one more try
+                    turn.retriedEmpty = true;
+                    turn.steps--;   // send() counts it again, and this is still the first step
+                    send(c, key, model, turn, listener, gen);
+                    return true;
+                }
+                listener.onError("a API respondeu sem texto duas vezes (motivo: " + (stopReason.length() == 0 ? "nenhum" : stopReason)
+                        + "). Tente de novo ou veja -jarvis -log.");
                 return false;
             }
             turn.messages.add(new AiConversation.Message("assistant", "(feito)"));

@@ -45,7 +45,9 @@ public class JarvisClient {
 
     private static final String URL = "https://api.anthropic.com/v1/messages";
     private static final String VERSION = "2023-06-01";
-    private static final int MAX_TOKENS = 500;
+    // A ceiling, not a target: spoken answers stay short by the persona rules. It must leave room for a tool call that carries
+    // a long text (a message full of flourishes), or the call is cut off in the middle and nothing is left to run.
+    private static final int MAX_TOKENS = 2500;
     private static final int MAX_STEPS = 24;   // moving around an app takes one request per look and per touch
 
     private static final long INACTIVITY_MS = 30L * 60L * 1000L;
@@ -445,6 +447,11 @@ public class JarvisClient {
                     // a refusal by the model itself: asking again the same way would only be refused again
                     listener.onError("o modelo (" + model.replace("claude-", "") + ") recusou este pedido e não disse nada. "
                             + "Tente dizer de outro jeito, explique o contexto num adendo, ou teste um modelo maior (ai -jarvis -model sonnet).");
+                    return false;
+                }
+                if ("max_tokens".equals(stopReason)) {
+                    listener.onError("o texto pedido ficou maior do que cabe numa resposta e foi cortado antes de terminar. "
+                            + "Peça uma mensagem mais curta.");
                     return false;
                 }
                 if (!turn.retriedEmpty) {
